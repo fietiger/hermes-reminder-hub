@@ -569,13 +569,15 @@ const server = http.createServer((req, res) => {
             return;
         }
 
-        if (pathname === '/api/reminders' && method === 'POST') {
-            const { title, content, channel_id, channel_ids, template_id, calendar_type, repeat_type, target_override } = jsonBody;
+        // 新建或编辑提醒 (POST /api/reminders 或 PUT /api/reminders/:id)
+        if ((pathname === '/api/reminders' && method === 'POST') || (pathname.startsWith('/api/reminders/') && method === 'PUT')) {
+            const { id, title, content, channel_id, channel_ids, template_id, calendar_type, repeat_type, target_override } = jsonBody;
             if (!content) return sendJson(400, { error: 'content is required' });
 
-            const remId = 'rem_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-            const calType = calendar_type === 'lunar' ? 'lunar' : 'solar';
-            const repType = repeat_type || 'once';
+            const isEdit = method === 'PUT' || !!id;
+            const remId = isEdit ? (pathname.startsWith('/api/reminders/') ? pathname.split('/')[3] : id) : ('rem_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
+            const calType = calendar_type === 'lunar' ? 'lunar' : (calendar_type === 'common' ? 'common' : 'solar');
+            const repType = repeat_type || 'daily';
             const tplId = template_id || 'tpl_standard';
             
             let targetChannels = [];
@@ -597,22 +599,43 @@ const server = http.createServer((req, res) => {
                 return sendJson(400, { error: 'Unable to calculate next trigger time. Check your time rules.' });
             }
 
-            db.run(`
-                INSERT INTO reminders (id, title, content, channel_id, channel_ids, template_id, target_override, calendar_type, repeat_type, rule_detail, next_trigger_at, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
-            `, [remId, title || '', content, primaryChannel, channelIdsJson, tplId, target_override || '', calType, repType, JSON.stringify(jsonBody), nextTrigger], function(err) {
-                if (err) return sendJson(500, { error: err.message });
-                sendJson(200, {
-                    success: true,
-                    reminder_id: remId,
-                    channels: targetChannels,
-                    template_id: tplId,
-                    next_trigger_at: nextTrigger,
-                    next_trigger_iso: new Date(nextTrigger).toISOString(),
-                    calendar_type: calType,
-                    repeat_type: repType
+            if (isEdit) {
+                db.run(`
+                    UPDATE reminders SET title=?, content=?, channel_id=?, channel_ids=?, template_id=?, target_override=?, calendar_type=?, repeat_type=?, rule_detail=?, next_trigger_at=?, status='active'
+                    WHERE id=?
+                `, [title || '', content, primaryChannel, channelIdsJson, tplId, target_override || '', calType, repType, JSON.stringify(jsonBody), nextTrigger, remId], function(err) {
+                    if (err) return sendJson(500, { error: err.message });
+                    sendJson(200, {
+                        success: true,
+                        is_edit: true,
+                        reminder_id: remId,
+                        channels: targetChannels,
+                        template_id: tplId,
+                        next_trigger_at: nextTrigger,
+                        next_trigger_iso: new Date(nextTrigger).toISOString(),
+                        calendar_type: calType,
+                        repeat_type: repType
+                    });
                 });
-            });
+            } else {
+                db.run(`
+                    INSERT INTO reminders (id, title, content, channel_id, channel_ids, template_id, target_override, calendar_type, repeat_type, rule_detail, next_trigger_at, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+                `, [remId, title || '', content, primaryChannel, channelIdsJson, tplId, target_override || '', calType, repType, JSON.stringify(jsonBody), nextTrigger], function(err) {
+                    if (err) return sendJson(500, { error: err.message });
+                    sendJson(200, {
+                        success: true,
+                        is_edit: false,
+                        reminder_id: remId,
+                        channels: targetChannels,
+                        template_id: tplId,
+                        next_trigger_at: nextTrigger,
+                        next_trigger_iso: new Date(nextTrigger).toISOString(),
+                        calendar_type: calType,
+                        repeat_type: repType
+                    });
+                });
+            }
             return;
         }
 

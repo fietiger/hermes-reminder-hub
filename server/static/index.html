@@ -24,7 +24,6 @@
         .safe-bottom-tab { padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem)); }
         .safe-bottom-content { padding-bottom: max(5.5rem, calc(env(safe-area-inset-bottom, 0px) + 5rem)); }
         
-        /* 移动端原生毛玻璃和弹窗手感 */
         .glass-header {
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(20px);
@@ -114,19 +113,19 @@
                     📭
                 </div>
                 <h3 class="text-sm font-bold text-slate-700">暂无待触发的提醒</h3>
-                <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto">点击右上角「创建」添加农历生日、公历周期或倒计时提醒</p>
+                <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto">点击右上角「创建」添加农历生日、公历周期或通用提醒</p>
                 <button @click="openAddModal" class="mt-4 px-4 py-2 bg-indigo-50 text-indigo-600 font-bold text-xs rounded-full hover:bg-indigo-100 transition">
                     ➕ 立即新建提醒
                 </button>
             </div>
 
-            <!-- 提醒卡片列表 (iOS Inset Card Style) -->
+            <!-- 提醒卡片列表 (支持点击编辑) -->
             <div v-for="r in reminders" :key="r.id" class="ios-card-active bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 transition flex flex-col justify-between relative overflow-hidden">
                 <!-- 顶部标签栏 -->
                 <div class="flex items-center justify-between gap-2 mb-2">
                     <div class="flex items-center gap-1.5 flex-wrap">
-                        <span :class="['text-[11px] px-2 py-0.5 rounded-full font-bold', r.calendar_type === 'lunar' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800']">
-                            {{ r.calendar_type === 'lunar' ? '🏮 农历' : '☀️ 公历' }}
+                        <span :class="['text-[11px] px-2 py-0.5 rounded-full font-bold', r.calendar_type === 'lunar' ? 'bg-amber-100 text-amber-800' : (r.calendar_type === 'solar' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800')]">
+                            {{ getCategoryBadge(r.calendar_type) }}
                         </span>
                         <span class="text-[11px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium border border-purple-100">
                             {{ getRepeatLabel(r.repeat_type, r.calendar_type) }}
@@ -136,9 +135,12 @@
                         </span>
                     </div>
 
-                    <!-- 操作菜单 -->
+                    <!-- 操作菜单 (编辑 + 预览 + 删除) -->
                     <div class="flex items-center gap-1">
-                        <button @click="previewReminder(r)" class="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-50 transition" title="预览卡片">
+                        <button @click="editReminder(r)" class="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-50 transition" title="编辑修改">
+                            ✏️
+                        </button>
+                        <button @click="previewReminder(r)" class="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg hover:bg-slate-50 transition" title="预览卡片">
                             👁️
                         </button>
                         <button @click="deleteReminder(r.id)" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-50 transition" title="删除">
@@ -147,9 +149,11 @@
                     </div>
                 </div>
 
-                <!-- 标题与内容 -->
-                <h3 v-if="r.title" class="text-sm font-bold text-slate-900 mb-1 leading-snug">{{ r.title }}</h3>
-                <p class="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-slate-50 p-2.5 rounded-xl border border-slate-100 mb-2.5">{{ r.content }}</p>
+                <!-- 标题与内容 (点击可快捷进入编辑) -->
+                <div @click="editReminder(r)" class="cursor-pointer">
+                    <h3 v-if="r.title" class="text-sm font-bold text-slate-900 mb-1 leading-snug">{{ r.title }}</h3>
+                    <p class="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-slate-50 p-2.5 rounded-xl border border-slate-100 mb-2.5">{{ r.content }}</p>
+                </div>
 
                 <!-- 底部元信息与触发时间 -->
                 <div class="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100">
@@ -233,17 +237,14 @@
     <!-- 底部原生 iOS TabBar (Fixed Bottom Navigation) -->
     <nav class="fixed bottom-0 left-0 right-0 z-30 glass-tabbar border-t border-slate-200/60 safe-bottom-tab max-w-lg mx-auto">
         <div class="grid grid-cols-3 py-1 text-center">
-            <!-- 提醒 Tab -->
             <button @click="activeTab = 'reminders'" :class="['ios-btn-active py-1 flex flex-col items-center justify-center transition', activeTab === 'reminders' ? 'text-indigo-600 font-bold' : 'text-slate-400']">
                 <span class="text-lg leading-tight mb-0.5">📅</span>
                 <span class="text-[10px]">定时提醒</span>
             </button>
-            <!-- 模板 Tab -->
             <button @click="activeTab = 'templates'" :class="['ios-btn-active py-1 flex flex-col items-center justify-center transition', activeTab === 'templates' ? 'text-indigo-600 font-bold' : 'text-slate-400']">
                 <span class="text-lg leading-tight mb-0.5">🎨</span>
                 <span class="text-[10px]">消息模板</span>
             </button>
-            <!-- 通道 Tab -->
             <button @click="activeTab = 'channels'" :class="['ios-btn-active py-1 flex flex-col items-center justify-center transition', activeTab === 'channels' ? 'text-indigo-600 font-bold' : 'text-slate-400']">
                 <span class="text-lg leading-tight mb-0.5">📡</span>
                 <span class="text-[10px]">通知通道</span>
@@ -251,16 +252,15 @@
         </div>
     </nav>
 
-    <!-- 弹窗 1：主表单 - 新建提醒抽屉 (Bottom Sheet Modal) -->
+    <!-- 弹窗 1：主表单 - 新建/编辑提醒抽屉 (Create / Edit Reminder Sheet) -->
     <div v-if="showAddModal" class="fixed inset-0 bg-black/60 z-40 flex items-end justify-center backdrop-blur-xs transition-opacity animate-fade-in">
         <div class="bg-white w-full rounded-t-3xl max-h-[92vh] flex flex-col p-5 shadow-2xl safe-bottom-tab overflow-hidden animate-slide-up">
-            <!-- 抽屉顶部把手 -->
             <div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-3"></div>
 
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
                 <h2 class="text-base font-bold text-slate-900 flex items-center gap-1.5">
-                    <span>⏰</span>
-                    <span>新建智能提醒</span>
+                    <span>{{ isEditingReminder ? '✏️' : '⏰' }}</span>
+                    <span>{{ isEditingReminder ? '编辑定时提醒' : '新建智能提醒' }}</span>
                 </h2>
                 <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 p-1 text-base">✕</button>
             </div>
@@ -282,7 +282,7 @@
                     <div @click="showScheduleModal = true" class="flex items-center justify-between p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-2xl cursor-pointer hover:bg-indigo-100/60 transition active:scale-[0.98]">
                         <div class="flex items-center gap-2.5">
                             <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-lg font-bold shadow-sm">
-                                {{ form.calendar_type === 'lunar' ? '🏮' : '☀️' }}
+                                {{ getCategoryIcon(form.calendar_type) }}
                             </div>
                             <div>
                                 <div class="text-xs sm:text-sm font-bold text-indigo-950">{{ scheduleSummary.title }}</div>
@@ -331,14 +331,14 @@
                 <div class="flex gap-2">
                     <button @click="showAddModal = false" class="px-4 py-2 text-xs text-slate-600 rounded-xl font-medium">取消</button>
                     <button @click="saveReminder" :disabled="submitting" class="ios-btn-active px-5 py-2 text-xs bg-indigo-600 text-white font-bold rounded-xl shadow-md">
-                        {{ submitting ? '保存中...' : '确认创建' }}
+                        {{ submitting ? '保存中...' : (isEditingReminder ? '保存修改' : '确认创建') }}
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 弹窗 2：调度配置独立子弹窗 (Schedule Sub-Modal) -->
+    <!-- 弹窗 2：调度配置独立子弹窗 (通用/农历/公历三列平级架构) -->
     <div v-if="showScheduleModal" class="fixed inset-0 bg-black/70 z-50 flex items-end justify-center backdrop-blur-xs animate-fade-in">
         <div class="bg-white w-full rounded-t-3xl max-h-[90vh] flex flex-col p-5 shadow-2xl safe-bottom-tab overflow-hidden animate-slide-up">
             <div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-3"></div>
@@ -346,69 +346,85 @@
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
                 <h2 class="text-base font-bold text-slate-900 flex items-center gap-1.5">
                     <span>🗓️</span>
-                    <span>配置时间与历法调度</span>
+                    <span>配置时间与调度体系</span>
                 </h2>
                 <button @click="showScheduleModal = false" class="text-slate-400 p-1 text-base">✕</button>
             </div>
 
             <div class="flex-1 overflow-y-auto space-y-4">
-                <!-- 第一步：历法完全并列选择 (Segmented Control) -->
+                <!-- 1. 调度体系三列并列选择：通用 / 农历 / 公历 -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5">1. 选择历法体系（公历与农历完全并列）</label>
-                    <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200">
-                        <button @click="scheduleDraft.calendar_type = 'solar'" :class="['py-2.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5', scheduleDraft.calendar_type === 'solar' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600']">
-                            <span>☀️</span>
-                            <span>公历体系 (阳历)</span>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">1. 选择调度体系分类</label>
+                    <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+                        <!-- 通用 (每日/每周/单次延时) -->
+                        <button @click="scheduleDraft.calendar_type = 'common'; scheduleDraft.repeat_type = 'daily'" :class="['py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1', scheduleDraft.calendar_type === 'common' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600']">
+                            <span>⚡</span>
+                            <span>通用</span>
                         </button>
-                        <button @click="scheduleDraft.calendar_type = 'lunar'" :class="['py-2.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5', scheduleDraft.calendar_type === 'lunar' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600']">
+                        <!-- 农历体系 (农历每年/农历每月) -->
+                        <button @click="scheduleDraft.calendar_type = 'lunar'; scheduleDraft.repeat_type = 'yearly'" :class="['py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1', scheduleDraft.calendar_type === 'lunar' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600']">
                             <span>🏮</span>
-                            <span>农历体系 (阴历)</span>
+                            <span>农历体系</span>
+                        </button>
+                        <!-- 公历体系 (公历每年/公历每月) -->
+                        <button @click="scheduleDraft.calendar_type = 'solar'; scheduleDraft.repeat_type = 'yearly'" :class="['py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1', scheduleDraft.calendar_type === 'solar' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600']">
+                            <span>☀️</span>
+                            <span>公历体系</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- 第二步：对应历法下的周期规则 -->
+                <!-- 2. 分类下的专属周期规则 -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5">2. 选择重复周期</label>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">2. 选择重复周期规则</label>
                     
-                    <!-- 公历周期 -->
-                    <div v-if="scheduleDraft.calendar_type === 'solar'" class="grid grid-cols-2 gap-2">
+                    <!-- 1. 通用分类 (每日、每周几、单次倒计时) -->
+                    <div v-if="scheduleDraft.calendar_type === 'common'" class="grid grid-cols-3 gap-2">
                         <div @click="scheduleDraft.repeat_type = 'daily'" :class="['p-2.5 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'daily' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white']">
-                            <div class="text-xs sm:text-sm">🌅 公历每日</div>
+                            <div class="text-xs font-bold">🌅 每日重复</div>
+                            <div class="text-[10px] text-slate-400">每天固定时间</div>
                         </div>
                         <div @click="scheduleDraft.repeat_type = 'weekly'" :class="['p-2.5 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'weekly' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white']">
-                            <div class="text-xs sm:text-sm">📅 公历每周几</div>
+                            <div class="text-xs font-bold">📅 每周几</div>
+                            <div class="text-[10px] text-slate-400">固定周几触发</div>
                         </div>
-                        <div @click="scheduleDraft.repeat_type = 'monthly'" :class="['p-2.5 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'monthly' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white']">
-                            <div class="text-xs sm:text-sm">🗓️ 公历每月几号</div>
-                        </div>
-                        <div @click="scheduleDraft.repeat_type = 'yearly'" :class="['p-2.5 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'yearly' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white']">
-                            <div class="text-xs sm:text-sm">🎂 公历每年</div>
-                        </div>
-                        <div @click="scheduleDraft.repeat_type = 'once'" :class="['col-span-2 p-2.5 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'once' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white']">
-                            <div class="text-xs sm:text-sm">⏱️ 公历单次倒计时 / 指定时间</div>
+                        <div @click="scheduleDraft.repeat_type = 'once'" :class="['p-2.5 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'once' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white']">
+                            <div class="text-xs font-bold">⏱️ 单次倒计时</div>
+                            <div class="text-[10px] text-slate-400">延迟N分钟/指定</div>
                         </div>
                     </div>
 
-                    <!-- 农历周期 (去掉了农历每天，并列支持农历每年与农历每月) -->
-                    <div v-else class="grid grid-cols-2 gap-2">
+                    <!-- 2. 农历分类 (农历每年几月几号、农历每月几号) -->
+                    <div v-else-if="scheduleDraft.calendar_type === 'lunar'" class="grid grid-cols-2 gap-2">
                         <div @click="scheduleDraft.repeat_type = 'yearly'" :class="['p-3 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'yearly' ? 'border-amber-600 bg-amber-50 font-bold text-amber-900' : 'border-slate-200 bg-white']">
-                            <div class="text-xs sm:text-sm">🏮 农历每年几月几号</div>
-                            <div class="text-[10px] text-amber-600 font-normal mt-0.5">如生日/中秋/春节</div>
+                            <div class="text-xs sm:text-sm font-bold">🏮 农历每年几月几号</div>
+                            <div class="text-[10px] text-amber-600 font-normal mt-0.5">如农历生日/中秋节/春节</div>
                         </div>
                         <div @click="scheduleDraft.repeat_type = 'monthly'" :class="['p-3 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'monthly' ? 'border-amber-600 bg-amber-50 font-bold text-amber-900' : 'border-slate-200 bg-white']">
-                            <div class="text-xs sm:text-sm">🌙 农历每月几号</div>
-                            <div class="text-[10px] text-amber-600 font-normal mt-0.5">如初一/十五吃素</div>
+                            <div class="text-xs sm:text-sm font-bold">🌙 农历每月几号</div>
+                            <div class="text-[10px] text-amber-600 font-normal mt-0.5">如每月初一/十五吃素</div>
+                        </div>
+                    </div>
+
+                    <!-- 3. 公历分类 (公历每年几月几号、公历每月几号) -->
+                    <div v-else class="grid grid-cols-2 gap-2">
+                        <div @click="scheduleDraft.repeat_type = 'yearly'" :class="['p-3 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'yearly' ? 'border-blue-600 bg-blue-50 font-bold text-blue-900' : 'border-slate-200 bg-white']">
+                            <div class="text-xs sm:text-sm font-bold">🎂 公历每年几月几号</div>
+                            <div class="text-[10px] text-blue-600 font-normal mt-0.5">如公历生日/结婚纪念日</div>
+                        </div>
+                        <div @click="scheduleDraft.repeat_type = 'monthly'" :class="['p-3 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'monthly' ? 'border-blue-600 bg-blue-50 font-bold text-blue-900' : 'border-slate-200 bg-white']">
+                            <div class="text-xs sm:text-sm font-bold">🗓️ 公历每月几号</div>
+                            <div class="text-[10px] text-blue-600 font-normal mt-0.5">如每月10号还信用卡/房租</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 第三步：参数详情输入 -->
+                <!-- 3. 对应参数输入 -->
                 <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                    <!-- 1. 公历参数 -->
-                    <template v-if="scheduleDraft.calendar_type === 'solar'">
+                    <!-- 通用参数 -->
+                    <template v-if="scheduleDraft.calendar_type === 'common'">
                         <div v-if="scheduleDraft.repeat_type === 'daily'" class="flex items-center justify-between gap-2">
-                            <span class="text-xs font-bold text-slate-700">每天提醒时间点</span>
+                            <span class="text-xs font-bold text-slate-700">每天提醒时间点 (北京时间)</span>
                             <input v-model="scheduleDraft.time" type="time" class="border border-slate-300 rounded-xl px-3 py-1.5 text-sm bg-white font-mono">
                         </div>
 
@@ -431,46 +447,20 @@
                             </div>
                         </div>
 
-                        <div v-if="scheduleDraft.repeat_type === 'monthly'" class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">公历几号 (1-31)</label>
-                                <input v-model.number="scheduleDraft.monthly_day" type="number" min="1" max="31" placeholder="如 10" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">时间</label>
-                                <input v-model="scheduleDraft.time" type="time" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white font-mono">
-                            </div>
-                        </div>
-
-                        <div v-if="scheduleDraft.repeat_type === 'yearly'" class="grid grid-cols-3 gap-2">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">月份</label>
-                                <input v-model.number="scheduleDraft.yearly_month" type="number" min="1" max="12" placeholder="如 10" class="w-full border border-slate-300 rounded-xl px-2 py-1.5 text-xs bg-white">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">日期</label>
-                                <input v-model.number="scheduleDraft.yearly_day" type="number" min="1" max="31" placeholder="如 27" class="w-full border border-slate-300 rounded-xl px-2 py-1.5 text-xs bg-white">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">时间</label>
-                                <input v-model="scheduleDraft.time" type="time" class="w-full border border-slate-300 rounded-xl px-2 py-1.5 text-xs bg-white font-mono">
-                            </div>
-                        </div>
-
                         <div v-if="scheduleDraft.repeat_type === 'once'" class="space-y-2">
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 mb-1">相对延迟 (分钟)</label>
                                 <input v-model.number="scheduleDraft.delay_minutes" type="number" placeholder="如 15 (15分钟后触发)" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">或指定具体时间</label>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">或指定具体日期时间</label>
                                 <input v-model="scheduleDraft.run_at" type="datetime-local" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white font-mono">
                             </div>
                         </div>
                     </template>
 
-                    <!-- 2. 农历参数 -->
-                    <template v-else>
+                    <!-- 农历参数 -->
+                    <template v-else-if="scheduleDraft.calendar_type === 'lunar'">
                         <div v-if="scheduleDraft.repeat_type === 'yearly'" class="grid grid-cols-3 gap-2">
                             <div>
                                 <label class="block text-xs font-bold text-amber-900 mb-1">农历月份</label>
@@ -494,6 +484,35 @@
                             <div>
                                 <label class="block text-xs font-bold text-amber-900 mb-1">时间</label>
                                 <input v-model="scheduleDraft.time" type="time" class="w-full border border-amber-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white font-mono">
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- 公历参数 -->
+                    <template v-else>
+                        <div v-if="scheduleDraft.repeat_type === 'yearly'" class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-blue-900 mb-1">公历月份</label>
+                                <input v-model.number="scheduleDraft.yearly_month" type="number" min="1" max="12" placeholder="如 10" class="w-full border border-blue-300 rounded-xl px-2 py-1.5 text-xs bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-blue-900 mb-1">公历日期</label>
+                                <input v-model.number="scheduleDraft.yearly_day" type="number" min="1" max="31" placeholder="如 27" class="w-full border border-blue-300 rounded-xl px-2 py-1.5 text-xs bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-blue-900 mb-1">时间</label>
+                                <input v-model="scheduleDraft.time" type="time" class="w-full border border-blue-300 rounded-xl px-2 py-1.5 text-xs bg-white font-mono">
+                            </div>
+                        </div>
+
+                        <div v-if="scheduleDraft.repeat_type === 'monthly'" class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-blue-900 mb-1">公历几号 (1-31)</label>
+                                <input v-model.number="scheduleDraft.monthly_day" type="number" min="1" max="31" placeholder="如 10" class="w-full border border-blue-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-blue-900 mb-1">时间</label>
+                                <input v-model="scheduleDraft.time" type="time" class="w-full border border-blue-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white font-mono">
                             </div>
                         </div>
                     </template>
@@ -680,14 +699,16 @@ createApp({
         const showAddChannelModal = ref(false);
         const showDirectSendModal = ref(false);
         const showTemplateModal = ref(false);
+        const isEditingReminder = ref(false);
         const submitting = ref(false);
         const sendingDirect = ref(false);
         const previewHtml = ref('');
 
         const form = ref({
+            id: '',
             title: '',
             content: '',
-            calendar_type: 'solar',
+            calendar_type: 'common',
             repeat_type: 'daily',
             template_id: 'tpl_standard',
             channel_ids: ['default_wx'],
@@ -702,9 +723,9 @@ createApp({
             run_at: ''
         });
 
-        // 调度配置子弹窗暂存状态
+        // 调度配置子弹窗暂存状态 (三列体系: common | lunar | solar)
         const scheduleDraft = ref({
-            calendar_type: 'solar',
+            calendar_type: 'common',
             repeat_type: 'daily',
             time: '09:00',
             weekday: 5,
@@ -742,33 +763,91 @@ createApp({
             const f = form.value;
             if (f.calendar_type === 'lunar') {
                 if (f.repeat_type === 'yearly') {
-                    return { title: `🏮 农历每年 ${f.lunar_month}月${f.lunar_day}日 ${f.time || '09:00'}`, desc: '每年农历特定日期触发（如生日/传统节日）' };
+                    return { title: `🏮 农历每年 ${f.lunar_month || 1}月${f.lunar_day || 1}日 ${f.time || '09:00'}`, desc: '每年农历特定日期触发（如生日/传统节日）' };
                 } else {
-                    return { title: `🌙 农历每月 ${f.lunar_day}日 ${f.time || '09:00'}`, desc: '每月农历特定日期触发（如初一/十五）' };
+                    return { title: `🌙 农历每月 ${f.lunar_day || 1}日 ${f.time || '09:00'}`, desc: '每月农历特定日期触发（如初一/十五吃素）' };
+                }
+            } else if (f.calendar_type === 'solar') {
+                if (f.repeat_type === 'yearly') {
+                    return { title: `🎂 公历每年 ${f.yearly_month || 1}月${f.yearly_day || 1}日 ${f.time || '09:00'}`, desc: '每年公历纪念日触发' };
+                } else {
+                    return { title: `🗓️ 公历每月 ${f.monthly_day || 1}号 ${f.time || '09:00'}`, desc: '每月公历指定日期触发（如还款/交租）' };
                 }
             } else {
                 if (f.repeat_type === 'daily') {
-                    return { title: `🌅 公历每天 ${f.time || '09:00'}`, desc: '每日固定时间触发' };
+                    return { title: `🌅 每日固定 ${f.time || '09:00'}`, desc: '每天指定时间点触发' };
                 } else if (f.repeat_type === 'weekly') {
                     const wMap = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-                    return { title: `📅 公历每${wMap[f.weekday] || '周'} ${f.time || '09:00'}`, desc: '每周固定日期时间触发' };
-                } else if (f.repeat_type === 'monthly') {
-                    return { title: `🗓️ 公历每月 ${f.monthly_day || 1}号 ${f.time || '09:00'}`, desc: '每月公历指定日期触发' };
-                } else if (f.repeat_type === 'yearly') {
-                    return { title: `🎂 公历每年 ${f.yearly_month || 1}月${f.yearly_day || 1}日 ${f.time || '09:00'}`, desc: '每年公历纪念日触发' };
+                    return { title: `📅 每周${wMap[f.weekday] || '五'} ${f.time || '09:00'}`, desc: '每周固定周几触发' };
                 } else {
-                    return { title: `⏱️ 公历单次延时 (${f.delay_minutes || 15}分钟后)`, desc: '倒计时单次触发' };
+                    return { title: `⏱️ 单次延时 (${f.delay_minutes || 15}分钟后)`, desc: '倒计时单次触发' };
                 }
             }
         });
 
+        const getCategoryIcon = (cal) => {
+            if (cal === 'lunar') return '🏮';
+            if (cal === 'solar') return '☀️';
+            return '⚡';
+        };
+
+        const getCategoryBadge = (cal) => {
+            if (cal === 'lunar') return '🏮 农历';
+            if (cal === 'solar') return '☀️ 公历';
+            return '⚡ 通用';
+        };
+
         const openAddModal = () => {
-            if (channels.value.length > 0 && form.value.channel_ids.length === 0) {
-                form.value.channel_ids = [channels.value[0].id];
-            }
-            if (!form.value.template_id && templates.value.length > 0) {
-                form.value.template_id = templates.value[0].id;
-            }
+            isEditingReminder.value = false;
+            form.value = {
+                id: '',
+                title: '',
+                content: '',
+                calendar_type: 'common',
+                repeat_type: 'daily',
+                template_id: templates.value[0]?.id || 'tpl_standard',
+                channel_ids: channels.value.length > 0 ? [channels.value[0].id] : ['default_wx'],
+                time: '09:00',
+                weekday: 5,
+                monthly_day: 10,
+                yearly_month: 10,
+                yearly_day: 27,
+                lunar_month: 9,
+                lunar_day: 18,
+                delay_minutes: 15,
+                run_at: ''
+            };
+            scheduleDraft.value = { ...form.value };
+            showAddModal.value = true;
+        };
+
+        // 编辑已有提醒任务
+        const editReminder = (r) => {
+            isEditingReminder.value = true;
+            let rule = {};
+            try {
+                rule = JSON.parse(r.rule_detail || '{}');
+            } catch (e) {}
+
+            form.value = {
+                id: r.id,
+                title: r.title || '',
+                content: r.content || '',
+                calendar_type: r.calendar_type || 'common',
+                repeat_type: r.repeat_type || 'daily',
+                template_id: r.template_id || 'tpl_standard',
+                channel_ids: r.channel_ids || ['default_wx'],
+                time: rule.time || '09:00',
+                weekday: rule.weekday !== undefined ? rule.weekday : 5,
+                monthly_day: rule.monthly_day || 10,
+                yearly_month: rule.yearly_month || 10,
+                yearly_day: rule.yearly_day || 27,
+                lunar_month: rule.lunar_month || 9,
+                lunar_day: rule.lunar_day || 18,
+                delay_minutes: rule.delay_minutes || 15,
+                run_at: rule.run_at || ''
+            };
+
             scheduleDraft.value = { ...form.value };
             showAddModal.value = true;
         };
@@ -857,7 +936,7 @@ createApp({
                 title: templateForm.value.name || '模板预览标题',
                 content: '这是模板草稿的内容测试。',
                 time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
-                type: '☀️ 公历 · 每天',
+                type: '⚡ 通用 · 每日',
                 channel_name: '微信直通通道'
             };
             previewHtml.value = renderMarkdown(templateForm.value.content, vars);
@@ -942,19 +1021,21 @@ createApp({
             if (!form.value.channel_ids || form.value.channel_ids.length === 0) return alert('请至少勾选一个通知通道');
             submitting.value = true;
             try {
-                const res = await fetch('api/reminders', {
-                    method: 'POST',
+                const isEdit = isEditingReminder.value && !!form.value.id;
+                const endpoint = isEdit ? `api/reminders/${form.value.id}` : 'api/reminders';
+                const method = isEdit ? 'PUT' : 'POST';
+
+                const res = await fetch(endpoint, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(form.value)
                 });
                 const data = await res.json();
                 if (data.success) {
                     showAddModal.value = false;
-                    form.value.title = '';
-                    form.value.content = '';
                     await loadData();
                 } else {
-                    alert('创建失败: ' + (data.error || '未知错误'));
+                    alert('保存失败: ' + (data.error || '未知错误'));
                 }
             } catch (e) {
                 alert('请求异常: ' + e.message);
@@ -989,9 +1070,14 @@ createApp({
         };
 
         const getRepeatLabel = (t, cal) => {
-            const prefix = cal === 'lunar' ? '农历' : '公历';
-            const map = { once: '单次', daily: '每天', weekly: '每周', monthly: '每月', yearly: '每年' };
-            return `${prefix} · ${map[t] || t}`;
+            if (cal === 'lunar') {
+                return t === 'yearly' ? '农历 · 每年' : '农历 · 每月';
+            }
+            if (cal === 'solar') {
+                return t === 'yearly' ? '公历 · 每年' : '公历 · 每月';
+            }
+            const map = { daily: '每日重复', weekly: '每周重复', once: '单次倒计时' };
+            return map[t] || t;
         };
 
         const getChannelName = (id) => {
@@ -1020,12 +1106,12 @@ createApp({
         });
 
         return {
-            activeTab, reminders, channels, templates, loading, showAddModal, showScheduleModal, showPreviewModal, showAddChannelModal, showDirectSendModal, showTemplateModal, submitting, sendingDirect,
+            activeTab, reminders, channels, templates, loading, showAddModal, showScheduleModal, showPreviewModal, showAddChannelModal, showDirectSendModal, showTemplateModal, isEditingReminder, submitting, sendingDirect,
             form, scheduleDraft, channelForm, directSendForm, templateForm, scheduleSummary, previewHtml,
-            openAddModal, applyScheduleDraft, openAddTemplateModal, editTemplate,
+            openAddModal, editReminder, applyScheduleDraft, openAddTemplateModal, editTemplate,
             openFormPreview, openDirectPreview, previewReminder, previewTemplate, previewTemplateDraft,
             loadData, saveReminder, deleteReminder, saveChannel, saveTemplate, deleteTemplate, sendDirectNow,
-            getRepeatLabel, getChannelName, getTemplateName, formatTimestamp, formatTime
+            getRepeatLabel, getChannelName, getTemplateName, getCategoryIcon, getCategoryBadge, formatTimestamp, formatTime
         };
     }
 }).mount('#app');
