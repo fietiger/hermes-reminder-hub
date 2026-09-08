@@ -1024,6 +1024,11 @@ createApp({
             showAddModal.value = true;
         };
 
+        const openScheduleModal = () => {
+            scheduleDraft.value = { ...form.value };
+            showScheduleModal.value = true;
+        };
+
         const applyScheduleDraft = () => {
             Object.assign(form.value, scheduleDraft.value);
             showScheduleModal.value = false;
@@ -1364,7 +1369,7 @@ createApp({
         return {
             activeTab, reminders, sendHistory, sendHistoryLoading, channels, templates, loading, showAddModal, showScheduleModal, showPreviewModal, showAddChannelModal, showDirectSendModal, showTemplateModal, isEditingReminder, submitting, sendingDirect,
             form, scheduleDraft, channelForm, directSendForm, templateForm, scheduleSummary, previewHtml,
-            openAddModal, editReminder, applyScheduleDraft, openAddTemplateModal, editTemplate,
+            openAddModal, editReminder, openScheduleModal, applyScheduleDraft, openAddTemplateModal, editTemplate,
             openFormPreview, openDirectPreview, previewReminder, previewTemplate, previewTemplateDraft, previewSelectedTemplate,
             loadData, loadSendHistory, previewFromHistory, copyMessage, formatRelativeTime,
             saveReminder, deleteReminder, saveChannel, saveTemplate, deleteTemplate, sendDirectNow,
