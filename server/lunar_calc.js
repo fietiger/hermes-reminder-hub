@@ -1,5 +1,5 @@
 // lunar_calc.js - 精简高精度农历与公历互转算法 (1900-2100)
-// 支持阳历转农历、农历转阳历、闰月识别与下一次农历时间计算
+// 支持阳历转农历、农历转阳历、闰月识别、农历每年与农历每月周期计算
 
 const LUNAR_INFO = [
     0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
@@ -115,21 +115,18 @@ function lunarToSolar(lunarYear, lunarMonth, lunarDay, isLeap = false) {
     };
 }
 
-// 计算下一次农历提醒触发时间戳 (基于当前北京时间)
-function getNextLunarTrigger(lunarMonth, lunarDay, timeStr = "09:00", fromDate = new Date()) {
+// 1. 计算农历每年触发时间戳 (如农历九月十八 09:30)
+function getNextLunarYearlyTrigger(lunarMonth, lunarDay, timeStr = "09:00", fromDate = new Date()) {
     const [hourStr, minStr] = timeStr.split(":");
     const hour = parseInt(hourStr || "9", 10);
     const minute = parseInt(minStr || "0", 10);
 
-    // 获取当前北京时间对应年份
     const bjFormatter = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Shanghai", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", hour12: false });
     const bjParts = Object.fromEntries(bjFormatter.formatToParts(fromDate).map(p => [p.type, p.value]));
     const curYear = parseInt(bjParts.year, 10);
 
-    // 检查今年、明年、后年
     for (let y = curYear; y <= curYear + 3; y++) {
         const solar = lunarToSolar(y, lunarMonth, lunarDay, false);
-        // 构造对应的北京时间 ISO 字符串
         const mm = String(solar.month).padStart(2, "0");
         const dd = String(solar.day).padStart(2, "0");
         const hh = String(hour).padStart(2, "0");
@@ -141,13 +138,67 @@ function getNextLunarTrigger(lunarMonth, lunarDay, timeStr = "09:00", fromDate =
                 timestamp: triggerTime,
                 solarDate: `${solar.year}-${mm}-${dd}`,
                 time: `${hh}:${min}`,
-                lunarStr: `农历${lunarMonth}月${lunarDay}日`
+                lunarStr: `农历每年${lunarMonth}月${lunarDay}日`
             };
         }
     }
     return null;
 }
 
+// 2. 计算农历每月特定日期触发时间戳 (如农历每月十五/初一 09:00)
+function getNextLunarMonthlyTrigger(lunarDay, timeStr = "09:00", fromDate = new Date()) {
+    const [hourStr, minStr] = timeStr.split(":");
+    const hour = parseInt(hourStr || "9", 10);
+    const minute = parseInt(minStr || "0", 10);
+
+    // 获取当前日期的农历年月
+    const bjFormatter = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Shanghai", year: "numeric", month: "numeric", day: "numeric" });
+    const bjParts = Object.fromEntries(bjFormatter.formatToParts(fromDate).map(p => [p.type, p.value]));
+    const currentLunar = solarToLunar(parseInt(bjParts.year, 10), parseInt(bjParts.month, 10), parseInt(bjParts.day, 10));
+
+    let targetYear = currentLunar.year;
+    let targetMonth = currentLunar.month;
+
+    // 搜索未来 24 个农历月
+    for (let i = 0; i < 24; i++) {
+        const maxDays = monthDays(targetYear, targetMonth);
+        const actualDay = Math.min(lunarDay, maxDays);
+
+        const solar = lunarToSolar(targetYear, targetMonth, actualDay, false);
+        const mm = String(solar.month).padStart(2, "0");
+        const dd = String(solar.day).padStart(2, "0");
+        const hh = String(hour).padStart(2, "0");
+        const min = String(minute).padStart(2, "0");
+        const isoBeijing = `${solar.year}-${mm}-${dd}T${hh}:${min}:00+08:00`;
+        const triggerTime = new Date(isoBeijing).getTime();
+
+        if (triggerTime > fromDate.getTime()) {
+            return {
+                timestamp: triggerTime,
+                solarDate: `${solar.year}-${mm}-${dd}`,
+                time: `${hh}:${min}`,
+                lunarStr: `农历每月${lunarDay}日 (下次: ${targetMonth}月${actualDay}日)`
+            };
+        }
+
+        // 下一个农历月
+        targetMonth++;
+        if (targetMonth > 12) {
+            targetMonth = 1;
+            targetYear++;
+        }
+    }
+    return null;
+}
+
+// 统一对外接口
+function getNextLunarTrigger(lunarMonth, lunarDay, timeStr = "09:00", fromDate = new Date(), repeatType = "yearly") {
+    if (repeatType === "monthly") {
+        return getNextLunarMonthlyTrigger(lunarDay, timeStr, fromDate);
+    }
+    return getNextLunarYearlyTrigger(lunarMonth, lunarDay, timeStr, fromDate);
+}
+
 if (typeof module !== 'undefined') {
-    module.exports = { solarToLunar, lunarToSolar, getNextLunarTrigger };
+    module.exports = { solarToLunar, lunarToSolar, getNextLunarTrigger, getNextLunarYearlyTrigger, getNextLunarMonthlyTrigger };
 }

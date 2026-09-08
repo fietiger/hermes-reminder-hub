@@ -221,10 +221,10 @@ function applyTemplate(templateStr, vars) {
 function calculateNextTrigger(calendarType, repeatType, rule, fromTime = Date.now()) {
     const fromDate = new Date(fromTime);
     if (calendarType === 'lunar') {
-        const lMonth = parseInt(rule.lunar_month, 10);
-        const lDay = parseInt(rule.lunar_day, 10);
+        const lMonth = parseInt(rule.lunar_month || '1', 10);
+        const lDay = parseInt(rule.lunar_day || '1', 10);
         const lTime = rule.time || '09:00';
-        const res = getNextLunarTrigger(lMonth, lDay, lTime, fromDate);
+        const res = getNextLunarTrigger(lMonth, lDay, lTime, fromDate, repeatType);
         return res ? res.timestamp : null;
     }
 
