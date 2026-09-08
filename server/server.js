@@ -150,11 +150,14 @@ db.serialize(() => {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             reminder_id TEXT,
             channel_id TEXT,
+            message TEXT,
             status TEXT,
             response TEXT,
             delivered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `);
+    
+    db.run('ALTER TABLE delivery_logs ADD COLUMN message TEXT', (err) => {});
 
     // 默认插入本地微信直通通道
     db.run(`
@@ -350,8 +353,8 @@ function processDueReminders() {
                     targetIds.forEach((cId) => {
                         const ch = channelMap[cId];
                         if (!ch) {
-                            db.run(`INSERT INTO delivery_logs (reminder_id, channel_id, status, response) VALUES (?, ?, ?, ?)`,
-                                [row.id, cId, 'skipped', 'Channel not found or disabled']
+                            db.run(`INSERT INTO delivery_logs (reminder_id, channel_id, message, status, response) VALUES (?, ?, ?, ?, ?)`,
+                                [row.id, cId, finalMessage, 'skipped', 'Channel not found or disabled']
                             );
                             return;
                         }
@@ -363,8 +366,8 @@ function processDueReminders() {
                             const statusStr = delErr ? 'failed' : (result.statusCode >= 200 && result.statusCode < 300 ? 'success' : `http_${result.statusCode}`);
                             const logResp = delErr ? delErr.message : result.body;
 
-                            db.run(`INSERT INTO delivery_logs (reminder_id, channel_id, status, response) VALUES (?, ?, ?, ?)`,
-                                [row.id, cId, statusStr, logResp]
+                            db.run(`INSERT INTO delivery_logs (reminder_id, channel_id, message, status, response) VALUES (?, ?, ?, ?, ?)`,
+                                [row.id, cId, finalMessage, statusStr, logResp]
                             );
                         });
                     });
@@ -518,8 +521,8 @@ const server = http.createServer((req, res) => {
                             };
                             results.push(record);
 
-                            db.run(`INSERT INTO delivery_logs (reminder_id, channel_id, status, response) VALUES (?, ?, ?, ?)`,
-                                ['instant_send', cId, isOk ? 'success' : 'failed', delErr ? delErr.message : delRes.body]
+                            db.run(`INSERT INTO delivery_logs (reminder_id, channel_id, message, status, response) VALUES (?, ?, ?, ?, ?)`,
+                                ['instant_send', cId, textToSend, isOk ? 'success' : 'failed', delErr ? delErr.message : delRes.body]
                             );
 
                             completedCount++;
@@ -534,6 +537,23 @@ const server = http.createServer((req, res) => {
         }
 
         // 4. 通道管理 API
+        // 4. 发送历史 API
+        if (pathname === '/api/send_history' && method === 'GET') {
+            const limit = parseInt(jsonBody.limit || 50, 10);
+            db.all(`
+                SELECT dl.id, dl.reminder_id, dl.channel_id, c.name as channel_name, 
+                       dl.message, dl.status, dl.response, dl.delivered_at
+                FROM delivery_logs dl
+                LEFT JOIN channels c ON dl.channel_id = c.id
+                ORDER BY dl.delivered_at DESC
+                LIMIT ?
+            `, [limit], (err, rows) => {
+                if (err) return sendJson(500, { error: err.message });
+                sendJson(200, { history: rows || [] });
+            });
+            return;
+        }
+
         if (pathname === '/api/channels' && method === 'GET') {
             db.all('SELECT * FROM channels ORDER BY created_at DESC', [], (err, rows) => {
                 if (err) return sendJson(500, { error: err.message });

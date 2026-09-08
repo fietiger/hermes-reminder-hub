@@ -232,6 +232,62 @@
             </div>
         </div>
 
+        <!-- 4. 发送历史列表 (Send History Tab) -->
+        <div v-if="activeTab === 'history'" class="space-y-3">
+            <div class="flex items-center justify-between px-1 mb-3">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">最近 {{ sendHistory.length }} 条发送记录</span>
+                <button @click="loadSendHistory()" class="text-xs text-indigo-600 font-bold flex items-center gap-1">
+                    🔄 刷新
+                </button>
+            </div>
+
+            <div v-if="sendHistoryLoading" class="flex justify-center py-12">
+                <div class="flex flex-col items-center gap-3">
+                    <div class="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <span class="text-xs text-slate-400">加载中...</span>
+                </div>
+            </div>
+
+            <div v-else-if="sendHistory.length === 0" class="flex flex-col items-center justify-center py-16 text-slate-400">
+                <div class="text-5xl mb-3 opacity-30">📭</div>
+                <p class="text-sm font-medium">暂无发送记录</p>
+                <p class="text-xs mt-1 opacity-70">定时提醒触发或直发后，记录将在这里显示</p>
+            </div>
+
+            <div v-else class="space-y-2">
+                <div v-for="item in sendHistory" :key="item.id" class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 space-y-2">
+                    <!-- 头部：状态 + 时间 + 通道 -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span :class="['w-6 h-6 rounded-full flex items-center justify-center text-xs', 
+                                item.status === 'success' ? 'bg-emerald-100 text-emerald-600' :
+                                item.status === 'failed' ? 'bg-red-100 text-red-600' :
+                                'bg-slate-100 text-slate-500']">
+                                {{ item.status === 'success' ? '✓' : item.status === 'failed' ? '✗' : '⏸' }}
+                            </span>
+                            <span class="text-xs font-bold text-slate-700">{{ item.channel_name || item.channel_id }}</span>
+                        </div>
+                        <span class="text-[10px] text-slate-400">{{ formatRelativeTime(item.delivered_at) }}</span>
+                    </div>
+
+                    <!-- 消息内容预览 -->
+                    <div class="bg-slate-50 rounded-xl p-3 text-xs text-slate-600 whitespace-pre-wrap max-h-24 overflow-y-auto border border-slate-100">
+                        {{ item.message || '(无内容记录)' }}
+                    </div>
+
+                    <!-- 操作按钮 -->
+                    <div class="flex items-center gap-2 pt-1">
+                        <button v-if="item.message" @click="previewFromHistory(item)" class="flex-1 text-xs text-indigo-600 font-bold py-1.5 rounded-lg bg-indigo-50 active:bg-indigo-100 transition">
+                            👁️ 预览微信卡片
+                        </button>
+                        <button @click="copyMessage(item.message)" class="px-3 text-xs text-slate-500 py-1.5 rounded-lg bg-slate-50 active:bg-slate-100 transition">
+                            📋 复制
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <!-- 底部原生 iOS TabBar (Fixed Bottom Navigation) -->
@@ -244,6 +300,10 @@
             <button @click="activeTab = 'templates'" :class="['ios-btn-active py-1 flex flex-col items-center justify-center transition', activeTab === 'templates' ? 'text-indigo-600 font-bold' : 'text-slate-400']">
                 <span class="text-lg leading-tight mb-0.5">🎨</span>
                 <span class="text-[10px]">消息模板</span>
+            </button>
+            <button @click="activeTab = 'history'" :class="['ios-btn-active py-1 flex flex-col items-center justify-center transition', activeTab === 'history' ? 'text-indigo-600 font-bold' : 'text-slate-400']">
+                <span class="text-lg leading-tight mb-0.5">📜</span>
+                <span class="text-[10px]">发送历史</span>
             </button>
             <button @click="activeTab = 'channels'" :class="['ios-btn-active py-1 flex flex-col items-center justify-center transition', activeTab === 'channels' ? 'text-indigo-600 font-bold' : 'text-slate-400']">
                 <span class="text-lg leading-tight mb-0.5">📡</span>
@@ -700,6 +760,8 @@ createApp({
     setup() {
         const activeTab = ref('reminders');
         const reminders = ref([]);
+        const sendHistory = ref([]);
+        const sendHistoryLoading = ref(false);
         const channels = ref([]);
         const templates = ref([]);
         const loading = ref(false);
@@ -875,6 +937,23 @@ createApp({
         const editTemplate = (t) => {
             templateForm.value = { ...t };
             showTemplateModal.value = true;
+        };
+
+        // 相对时间格式化
+        const formatRelativeTime = (timestamp) => {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (minutes < 1) return '刚刚';
+            if (minutes < 60) return `${minutes} 分钟前`;
+            if (hours < 24) return `${hours} 小时前`;
+            if (days < 7) return `${days} 天前`;
+            return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
         };
 
         // 渲染辅助
