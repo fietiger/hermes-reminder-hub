@@ -935,24 +935,24 @@ createApp({
             const f = form.value;
             if (f.calendar_type === 'lunar') {
                 if (f.repeat_type === 'yearly') {
-                    return { title: `🏮 农历每年 ${f.lunar_month || 1}月${f.lunar_day || 1}日 ${f.time || '09:00'}`, desc: '每年农历特定日期触发（如生日/传统节日）' };
+                    return `农历每年 ${f.lunar_month || 1}月${f.lunar_day || 1}日 ${f.time || '09:00'}`;
                 } else {
-                    return { title: `🌙 农历每月 ${f.lunar_day || 1}日 ${f.time || '09:00'}`, desc: '每月农历特定日期触发（如初一/十五吃素）' };
+                    return `农历每月 ${f.lunar_day || 1}日 ${f.time || '09:00'}`;
                 }
             } else if (f.calendar_type === 'solar') {
                 if (f.repeat_type === 'yearly') {
-                    return { title: `🎂 公历每年 ${f.yearly_month || 1}月${f.yearly_day || 1}日 ${f.time || '09:00'}`, desc: '每年公历纪念日触发' };
+                    return `公历每年 ${f.yearly_month || 1}月${f.yearly_day || 1}日 ${f.time || '09:00'}`;
                 } else {
-                    return { title: `🗓️ 公历每月 ${f.monthly_day || 1}号 ${f.time || '09:00'}`, desc: '每月公历指定日期触发（如还款/交租）' };
+                    return `公历每月 ${f.monthly_day || 1}号 ${f.time || '09:00'}`;
                 }
             } else {
                 if (f.repeat_type === 'daily') {
-                    return { title: `🌅 每日固定 ${f.time || '09:00'}`, desc: '每天指定时间点触发' };
+                    return `每日固定 ${f.time || '09:00'}`;
                 } else if (f.repeat_type === 'weekly') {
                     const wMap = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-                    return { title: `📅 每周${wMap[f.weekday] || '五'} ${f.time || '09:00'}`, desc: '每周固定周几触发' };
+                    return `每周${wMap[f.weekday] || '五'} ${f.time || '09:00'}`;
                 } else {
-                    return { title: `⏱️ 单次延时 (${f.delay_minutes || 15}分钟后)`, desc: '倒计时单次触发' };
+                    return `单次延时 (${f.delay_minutes || 15}分钟后)`;
                 }
             }
         });
@@ -1060,7 +1060,7 @@ createApp({
                 title: form.value.title || '智能提醒任务',
                 content: form.value.content || '（这里是提醒正文示例内容）',
                 time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
-                type: scheduleSummary.value.title,
+                type: scheduleSummary.value,
                 channel_name: (form.value.channel_ids || []).map(getChannelName).join(' + ') || '微信直通'
             };
             previewHtml.value = renderMarkdown(tpl.content, vars);
