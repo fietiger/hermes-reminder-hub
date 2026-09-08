@@ -220,6 +220,93 @@ function applyTemplate(templateStr, vars) {
     return result;
 }
 
+/**
+ * 轻量级标准 Cron 表达式下次执行时间计算器
+ * 支持 5 段格式: 分 时 日 月 周 (例如: "30 9 * * 1-5" 或 "*/15 * * * *")
+ */
+function getNextCronTimestamp(cronExpr, fromTime = Date.now()) {
+    if (!cronExpr || typeof cronExpr !== 'string') return null;
+    const parts = cronExpr.trim().split(/\s+/);
+    if (parts.length !== 5) return null;
+
+    const [minPart, hourPart, dayPart, monthPart, weekPart] = parts;
+
+    function parseField(field, minVal, maxVal) {
+        const allowed = new Set();
+        const segments = field.split(',');
+        for (const seg of segments) {
+            if (seg === '*') {
+                for (let i = minVal; i <= maxVal; i++) allowed.add(i);
+            } else if (seg.startsWith('*/')) {
+                const step = parseInt(seg.slice(2), 10);
+                if (step > 0) {
+                    for (let i = minVal; i <= maxVal; i += step) allowed.add(i);
+                }
+            } else if (seg.includes('-')) {
+                const [start, end] = seg.split('-').map(x => parseInt(x, 10));
+                for (let i = start; i <= end; i++) allowed.add(i);
+            } else {
+                const val = parseInt(seg, 10);
+                if (!isNaN(val)) allowed.add(val);
+            }
+        }
+        return allowed;
+    }
+
+    const mins = parseField(minPart, 0, 59);
+    const hours = parseField(hourPart, 0, 23);
+    const days = parseField(dayPart, 1, 31);
+    const months = parseField(monthPart, 1, 12);
+    const weeks = parseField(weekPart, 0, 6);
+    if (weeks.has(7)) weeks.add(0);
+
+    let iter = new Date(fromTime + 60000);
+    iter.setSeconds(0, 0);
+
+    const maxLimit = fromTime + 5 * 365 * 86400 * 1000;
+    while (iter.getTime() < maxLimit) {
+        const m = iter.getMonth() + 1;
+        if (!months.has(m)) {
+            iter.setMonth(iter.getMonth() + 1, 1);
+            iter.setHours(0, 0, 0, 0);
+            continue;
+        }
+
+        const d = iter.getDate();
+        const w = iter.getDay();
+        const dayMatch = dayPart === '*' ? true : days.has(d);
+        const weekMatch = weekPart === '*' ? true : weeks.has(w);
+
+        let dateMatches = false;
+        if (dayPart !== '*' && weekPart !== '*') {
+            dateMatches = dayMatch || weekMatch;
+        } else {
+            dateMatches = dayMatch && weekMatch;
+        }
+
+        if (!dateMatches) {
+            iter.setDate(iter.getDate() + 1);
+            iter.setHours(0, 0, 0, 0);
+            continue;
+        }
+
+        const h = iter.getHours();
+        if (!hours.has(h)) {
+            iter.setHours(iter.getHours() + 1, 0, 0, 0);
+            continue;
+        }
+
+        const mi = iter.getMinutes();
+        if (!mins.has(mi)) {
+            iter.setMinutes(iter.getMinutes() + 1, 0, 0);
+            continue;
+        }
+
+        return iter.getTime();
+    }
+    return null;
+}
+
 // 辅助计算下次触发时间戳 (毫秒)
 function calculateNextTrigger(calendarType, repeatType, rule, fromTime = Date.now()) {
     const fromDate = new Date(fromTime);
@@ -233,6 +320,11 @@ function calculateNextTrigger(calendarType, repeatType, rule, fromTime = Date.no
 
     const timeStr = rule.time || '09:00';
     const [hh, mm] = timeStr.split(':').map(x => parseInt(x || '0', 10));
+
+    if (repeatType === 'cron') {
+        const cronStr = rule.cron_expr || rule.cron || '* * * * *';
+        return getNextCronTimestamp(cronStr, fromTime);
+    }
 
     if (repeatType === 'once') {
         if (rule.delay_minutes) return fromTime + rule.delay_minutes * 60 * 1000;
