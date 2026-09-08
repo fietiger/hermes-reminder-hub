@@ -26,7 +26,7 @@
             </div>
             <div>
                 <h1 class="text-xl sm:text-2xl font-bold text-slate-900">Hermes 提醒中枢</h1>
-                <p class="text-xs sm:text-sm text-slate-500">智能农历 / 阳历调度 · 多通道即时直发与广播路由</p>
+                <p class="text-xs sm:text-sm text-slate-500">智能农历 / 阳历调度 · 自定义 Markdown 消息模板 · 微信直通路由</p>
             </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
@@ -45,11 +45,14 @@
     </header>
 
     <!-- 导航 Tab -->
-    <div class="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2">
-        <button @click="activeTab = 'reminders'" :class="['px-4 py-2 rounded-xl text-sm font-medium transition', activeTab === 'reminders' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-100']">
+    <div class="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2 overflow-x-auto">
+        <button @click="activeTab = 'reminders'" :class="['px-4 py-2 rounded-xl text-sm font-medium transition flex-none', activeTab === 'reminders' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-100']">
             📅 定时提醒 ({{ reminders.length }})
         </button>
-        <button @click="activeTab = 'channels'" :class="['px-4 py-2 rounded-xl text-sm font-medium transition', activeTab === 'channels' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-100']">
+        <button @click="activeTab = 'templates'" :class="['px-4 py-2 rounded-xl text-sm font-medium transition flex-none', activeTab === 'templates' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-100']">
+            🎨 消息模板 ({{ templates.length }})
+        </button>
+        <button @click="activeTab = 'channels'" :class="['px-4 py-2 rounded-xl text-sm font-medium transition flex-none', activeTab === 'channels' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-100']">
             📡 通知通道 ({{ channels.length }})
         </button>
     </div>
@@ -58,7 +61,7 @@
     <div v-if="activeTab === 'reminders'" class="space-y-3.5">
         <div v-if="reminders.length === 0" class="bg-white rounded-2xl border border-slate-200 text-center py-16 text-slate-400">
             <div class="text-5xl mb-3">📭</div>
-            <p class="text-sm">暂无活跃的定时提醒，点击右上角新建或即时直发一条消息吧！</p>
+            <p class="text-sm">暂无活跃的定时提醒，点击右上角新建一个吧！</p>
         </div>
 
         <div v-for="r in reminders" :key="r.id" class="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-sm hover:shadow transition">
@@ -70,12 +73,15 @@
                     <span class="text-xs px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-medium">
                         {{ getRepeatLabel(r.repeat_type) }}
                     </span>
+                    <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+                        🎨 {{ getTemplateName(r.template_id) }}
+                    </span>
                     <div class="flex items-center gap-1 flex-wrap">
                         <span v-for="cId in r.channel_ids" :key="cId" class="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-medium">
                             📡 {{ getChannelName(cId) }}
                         </span>
                     </div>
-                    <span v-if="r.status === 'completed'" class="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-600">已完成</span>
+                    <span v-if="r.status === 'completed'" class="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-500">已完成</span>
                 </div>
                 <div class="flex items-center gap-1.5 self-end sm:self-auto">
                     <button @click="deleteReminder(r.id)" class="px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded-lg transition font-medium border border-rose-100">
@@ -100,7 +106,39 @@
         </div>
     </div>
 
-    <!-- 2. 通道列表 -->
+    <!-- 2. 消息模板管理 Tab -->
+    <div v-if="activeTab === 'templates'" class="space-y-4">
+        <div class="flex justify-between items-center mb-1">
+            <p class="text-xs text-slate-500">支持占位符：<code class="bg-slate-200 text-slate-800 px-1 py-0.5 rounded">\{\{title\}\}</code>、<code class="bg-slate-200 text-slate-800 px-1 py-0.5 rounded">\{\{content\}\}</code>、<code class="bg-slate-200 text-slate-800 px-1 py-0.5 rounded">\{\{time\}\}</code>、<code class="bg-slate-200 text-slate-800 px-1 py-0.5 rounded">\{\{type\}\}</code>、<code class="bg-slate-200 text-slate-800 px-1 py-0.5 rounded">\{\{channel_name\}\}</code></p>
+            <button @click="openAddTemplateModal" class="px-3.5 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-medium hover:bg-indigo-700 transition">
+                ➕ 新建模板
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            <div v-for="t in templates" :key="t.id" class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm sm:text-base font-bold text-slate-900">{{ t.name }}</h3>
+                            <span v-if="t.is_default" class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold border border-indigo-100">默认</span>
+                        </div>
+                        <span class="text-xs font-mono text-slate-400">{{ t.id }}</span>
+                    </div>
+                    <pre class="bg-slate-50 border border-slate-100 p-3 rounded-xl text-xs text-slate-700 font-mono whitespace-pre-wrap leading-relaxed h-32 overflow-y-auto">{{ t.content }}</pre>
+                </div>
+                <div class="flex justify-between items-center mt-3 pt-2.5 border-t border-slate-100">
+                    <span class="text-xs text-slate-400">适用: {{ t.type === 'direct' ? '即时直发' : (t.type === 'all' ? '全部' : '定时提醒') }}</span>
+                    <div class="flex items-center gap-1.5">
+                        <button @click="editTemplate(t)" class="text-xs text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded transition font-medium">编辑</button>
+                        <button v-if="!t.id.startsWith('tpl_standard') && !t.id.startsWith('tpl_direct')" @click="deleteTemplate(t.id)" class="text-xs text-rose-600 hover:bg-rose-50 px-2 py-1 rounded transition font-medium">删除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 通道列表 -->
     <div v-if="activeTab === 'channels'" class="space-y-3.5">
         <div class="flex justify-between items-center mb-2">
             <p class="text-xs text-slate-500">已挂载的接收端通道（支持小马、小牛、外部微信直通/Webhook）</p>
@@ -129,7 +167,7 @@
         </div>
     </div>
 
-    <!-- 即时直发弹窗 (Instant Send) -->
+    <!-- 即时直发弹窗 -->
     <div v-if="showDirectSendModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
         <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg p-4 sm:p-6">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -144,6 +182,13 @@
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">直发内容</label>
                     <textarea v-model="directSendForm.message" placeholder="输入要立即推送到微信的消息内容..." class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm h-28 resize-none outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">排版模板</label>
+                    <select v-model="directSendForm.template_id" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
+                        <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+                    </select>
                 </div>
 
                 <div>
@@ -170,7 +215,7 @@
         </div>
     </div>
 
-    <!-- 新建提醒弹窗 (支持多选通道) -->
+    <!-- 新建提醒弹窗 -->
     <div v-if="showAddModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
         <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -189,22 +234,13 @@
                     <textarea v-model="form.content" placeholder="输入要推送给微信的详细内容..." class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm h-24 resize-none outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
                 </div>
 
-                <!-- 多通道勾选 -->
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                        <span>通知通道（支持同时勾选多个通道并发广播）</span>
-                        <span class="text-xs text-indigo-600 font-normal">已选 {{ form.channel_ids.length }} 个通道</span>
-                    </label>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                        <label v-for="c in channels" :key="c.id" class="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-indigo-300 transition">
-                            <input type="checkbox" :value="c.id" v-model="form.channel_ids" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
-                            <span class="text-xs font-medium text-slate-800">{{ c.name }}</span>
-                            <span class="text-[10px] text-slate-400 font-mono ml-auto">({{ c.id }})</span>
-                        </label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">排版模板</label>
+                        <select v-model="form.template_id" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
+                            <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+                        </select>
                     </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">历法类型</label>
                         <select v-model="form.calendar_type" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
@@ -212,15 +248,31 @@
                             <option value="lunar">🏮 农历 (阴历)</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">重复周期</label>
-                        <select v-model="form.repeat_type" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
-                            <option value="once">单次提醒</option>
-                            <option value="daily">每天重复</option>
-                            <option value="weekly">每周重复</option>
-                            <option value="monthly">每月重复</option>
-                            <option value="yearly">每年重复</option>
-                        </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">重复周期</label>
+                    <select v-model="form.repeat_type" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
+                        <option value="once">单次提醒</option>
+                        <option value="daily">每天重复</option>
+                        <option value="weekly">每周重复</option>
+                        <option value="monthly">每月重复</option>
+                        <option value="yearly">每年重复</option>
+                    </select>
+                </div>
+
+                <!-- 多通道勾选 -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span>通知通道（支持多通道并发广播）</span>
+                        <span class="text-xs text-indigo-600 font-normal">已选 {{ form.channel_ids.length }} 个</span>
+                    </label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <label v-for="c in channels" :key="c.id" class="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-indigo-300 transition">
+                            <input type="checkbox" :value="c.id" v-model="form.channel_ids" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
+                            <span class="text-xs font-medium text-slate-800">{{ c.name }}</span>
+                            <span class="text-[10px] text-slate-400 font-mono ml-auto">({{ c.id }})</span>
+                        </label>
                     </div>
                 </div>
 
@@ -276,6 +328,45 @@
         </div>
     </div>
 
+    <!-- 新建/编辑模板弹窗 -->
+    <div v-if="showTemplateModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <h2 class="text-lg font-bold text-slate-900">{{ templateForm.id ? '编辑消息模板' : '新建消息模板' }}</h2>
+                <button @click="showTemplateModal = false" class="text-slate-400 hover:text-slate-600 text-lg p-1">✕</button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">模板名称</label>
+                    <input v-model="templateForm.name" type="text" placeholder="例如：自定义重点通知卡片" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">模板类型</label>
+                    <select v-model="templateForm.type" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
+                        <option value="reminder">定时提醒</option>
+                        <option value="direct">即时直发</option>
+                        <option value="all">通用</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1 flex justify-between">
+                        <span>Markdown 模板内容</span>
+                        <span class="text-[11px] text-slate-400">可用 \{\{title\}\} \{\{content\}\} \{\{time\}\} \{\{type\}\}</span>
+                    </label>
+                    <textarea v-model="templateForm.content" placeholder="输入 Markdown 内容模板..." class="w-full border border-slate-300 rounded-xl p-3 text-xs sm:text-sm font-mono h-48 resize-none outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-5 pt-3 border-t border-slate-100">
+                <button @click="showTemplateModal = false" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">取消</button>
+                <button @click="saveTemplate" class="px-5 py-2 text-sm bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 shadow-sm">保存模板</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 挂载通道弹窗 -->
     <div v-if="showAddChannelModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
         <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg p-4 sm:p-6">
@@ -317,10 +408,12 @@ createApp({
         const activeTab = ref('reminders');
         const reminders = ref([]);
         const channels = ref([]);
+        const templates = ref([]);
         const loading = ref(false);
         const showAddModal = ref(false);
         const showAddChannelModal = ref(false);
         const showDirectSendModal = ref(false);
+        const showTemplateModal = ref(false);
         const submitting = ref(false);
         const sendingDirect = ref(false);
 
@@ -329,6 +422,7 @@ createApp({
             content: '',
             calendar_type: 'solar',
             repeat_type: 'once',
+            template_id: 'tpl_standard',
             channel_ids: ['default_wx'],
             delay_minutes: 15,
             weekday: 5,
@@ -339,7 +433,15 @@ createApp({
 
         const directSendForm = ref({
             message: '',
+            template_id: 'tpl_direct_default',
             channel_ids: ['default_wx']
+        });
+
+        const templateForm = ref({
+            id: '',
+            name: '',
+            type: 'reminder',
+            content: ''
         });
 
         const channelForm = ref({
@@ -353,22 +455,67 @@ createApp({
             if (channels.value.length > 0 && form.value.channel_ids.length === 0) {
                 form.value.channel_ids = [channels.value[0].id];
             }
+            if (!form.value.template_id && templates.value.length > 0) {
+                form.value.template_id = templates.value[0].id;
+            }
             showAddModal.value = true;
+        };
+
+        const openAddTemplateModal = () => {
+            templateForm.value = { id: '', name: '', type: 'reminder', content: '### 🔔 {{title}}\n\n> **🕒 时间**：{{time}}\n\n---\n\n{{content}}' };
+            showTemplateModal.value = true;
+        };
+
+        const editTemplate = (t) => {
+            templateForm.value = { ...t };
+            showTemplateModal.value = true;
         };
 
         const loadData = async () => {
             loading.value = true;
             try {
-                const [rRes, cRes] = await Promise.all([
+                const [rRes, cRes, tRes] = await Promise.all([
                     fetch('api/reminders').then(r => r.json()),
-                    fetch('api/channels').then(r => r.json())
+                    fetch('api/channels').then(r => r.json()),
+                    fetch('api/templates').then(r => r.json())
                 ]);
                 reminders.value = rRes.reminders || [];
                 channels.value = cRes.channels || [];
+                templates.value = tRes.templates || [];
             } catch (e) {
                 console.error('加载失败:', e);
             } finally {
                 loading.value = false;
+            }
+        };
+
+        const saveTemplate = async () => {
+            if (!templateForm.value.name.trim() || !templateForm.value.content.trim()) return alert('请填写模板名称和内容');
+            try {
+                const res = await fetch('api/templates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(templateForm.value)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showTemplateModal.value = false;
+                    await loadData();
+                } else {
+                    alert('保存模板失败: ' + (data.error || '未知错误'));
+                }
+            } catch (e) {
+                alert('请求异常: ' + e.message);
+            }
+        };
+
+        const deleteTemplate = async (id) => {
+            if (!confirm('确定删除该模板？')) return;
+            try {
+                await fetch('api/templates/' + id, { method: 'DELETE' });
+                await loadData();
+            } catch (e) {
+                alert('删除失败: ' + e.message);
             }
         };
 
@@ -458,6 +605,11 @@ createApp({
             return c ? c.name : id;
         };
 
+        const getTemplateName = (id) => {
+            const t = templates.value.find(x => x.id === id);
+            return t ? t.name : (id || '默认模板');
+        };
+
         const formatTimestamp = (ts) => {
             if (!ts) return 'N/A';
             const d = new Date(ts);
@@ -474,10 +626,10 @@ createApp({
         });
 
         return {
-            activeTab, reminders, channels, loading, showAddModal, showAddChannelModal, showDirectSendModal, submitting, sendingDirect,
-            form, channelForm, directSendForm, openAddModal,
-            loadData, saveReminder, deleteReminder, saveChannel, sendDirectNow,
-            getRepeatLabel, getChannelName, formatTimestamp, formatTime
+            activeTab, reminders, channels, templates, loading, showAddModal, showAddChannelModal, showDirectSendModal, showTemplateModal, submitting, sendingDirect,
+            form, channelForm, directSendForm, templateForm, openAddModal, openAddTemplateModal, editTemplate,
+            loadData, saveReminder, deleteReminder, saveChannel, saveTemplate, deleteTemplate, sendDirectNow,
+            getRepeatLabel, getChannelName, getTemplateName, formatTimestamp, formatTime
         };
     }
 }).mount('#app');
