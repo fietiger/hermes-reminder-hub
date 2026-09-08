@@ -14,6 +14,7 @@
         .safe-bottom { padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem)); }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+        .schedule-card.active { border-color: #4f46e5; background-color: #f5f3ff; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800">
@@ -142,7 +143,7 @@
     <div v-if="activeTab === 'channels'" class="space-y-3.5">
         <div class="flex justify-between items-center mb-2">
             <p class="text-xs text-slate-500">已挂载的接收端通道（支持小马、小牛、外部微信直通/Webhook）</p>
-            <button @click="showAddChannelModal = true" class="px-3 py-1.5 bg-slate-800 text-white rounded-xl text-xs font-medium hover:bg-slate-700 transition">
+            <button @click="showAddChannelModal = true" class="px-3.5 py-1.5 bg-slate-800 text-white rounded-xl text-xs font-medium hover:bg-slate-700 transition">
                 ➕ 挂载新通道
             </button>
         </div>
@@ -215,59 +216,169 @@
         </div>
     </div>
 
-    <!-- 新建提醒弹窗 -->
+    <!-- 统一新建/配置提醒弹窗 (Unified Schedule & Reminder Modal) -->
     <div v-if="showAddModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
+        <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                <h2 class="text-lg font-bold text-slate-900">新建多通道定时提醒</h2>
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <span>⏰</span>
+                    <span>新建智能提醒任务</span>
+                </h2>
                 <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 text-lg p-1">✕</button>
             </div>
 
             <div class="space-y-4">
+                <!-- 基本信息 -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">提醒标题（可选）</label>
-                    <input v-model="form.title" type="text" placeholder="例如：爸妈生日 / 信用卡还款 / 喝水" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input v-model="form.title" type="text" placeholder="例如：爸妈生日 / 信用卡还款 / 每日晨报" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">提醒正文内容（必填）</label>
-                    <textarea v-model="form.content" placeholder="输入要推送给微信的详细内容..." class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm h-24 resize-none outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                    <textarea v-model="form.content" placeholder="输入要推送给微信的详细提醒内容..." class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm h-20 resize-none outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
                 </div>
 
+                <!-- 调度模式统一选择卡片 (Schedule Mode Cards) -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">时间与周期��式</label>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div @click="setScheduleMode('daily')" :class="['schedule-card p-2.5 rounded-xl border border-slate-200 cursor-pointer text-center transition hover:border-indigo-300', scheduleMode === 'daily' ? 'active' : 'bg-white']">
+                            <div class="text-base mb-0.5">🌅 每天重复</div>
+                            <div class="text-[11px] text-slate-400">每日指定时间触发</div>
+                        </div>
+
+                        <div @click="setScheduleMode('weekly')" :class="['schedule-card p-2.5 rounded-xl border border-slate-200 cursor-pointer text-center transition hover:border-indigo-300', scheduleMode === 'weekly' ? 'active' : 'bg-white']">
+                            <div class="text-base mb-0.5">📅 每周几</div>
+                            <div class="text-[11px] text-slate-400">固定每周几触发</div>
+                        </div>
+
+                        <div @click="setScheduleMode('monthly')" :class="['schedule-card p-2.5 rounded-xl border border-slate-200 cursor-pointer text-center transition hover:border-indigo-300', scheduleMode === 'monthly' ? 'active' : 'bg-white']">
+                            <div class="text-base mb-0.5">🗓️ 每月几号</div>
+                            <div class="text-[11px] text-slate-400">如每月10号还款</div>
+                        </div>
+
+                        <div @click="setScheduleMode('lunar_yearly')" :class="['schedule-card p-2.5 rounded-xl border border-slate-200 cursor-pointer text-center transition hover:border-indigo-300', scheduleMode === 'lunar_yearly' ? 'active' : 'bg-white']">
+                            <div class="text-base mb-0.5">🏮 农历每年</div>
+                            <div class="text-[11px] text-slate-400">农历生日/节日</div>
+                        </div>
+
+                        <div @click="setScheduleMode('solar_yearly')" :class="['schedule-card p-2.5 rounded-xl border border-slate-200 cursor-pointer text-center transition hover:border-indigo-300', scheduleMode === 'solar_yearly' ? 'active' : 'bg-white']">
+                            <div class="text-base mb-0.5">🎂 公历每年</div>
+                            <div class="text-[11px] text-slate-400">阳历纪念日</div>
+                        </div>
+
+                        <div @click="setScheduleMode('once')" :class="['schedule-card p-2.5 rounded-xl border border-slate-200 cursor-pointer text-center transition hover:border-indigo-300', scheduleMode === 'once' ? 'active' : 'bg-white']">
+                            <div class="text-base mb-0.5">⏱️ 倒计时单次</div>
+                            <div class="text-[11px] text-slate-400">N分钟后/指定时间</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 统一参数配置区域 (Unified Time & Parameter Section) -->
+                <div class="p-3.5 bg-indigo-50/50 rounded-2xl border border-indigo-100/80 space-y-3">
+                    <!-- 1. 每天重复参数 -->
+                    <div v-if="scheduleMode === 'daily'" class="flex items-center justify-between gap-3">
+                        <span class="text-xs font-bold text-indigo-900">每天提醒时间点 (北京时间)</span>
+                        <input v-model="form.time" type="time" class="border border-indigo-200 rounded-xl px-3 py-1.5 text-sm bg-white font-mono focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <!-- 2. 每周重复参数 -->
+                    <div v-if="scheduleMode === 'weekly'" class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-900 mb-1">选择周几</label>
+                            <select v-model.number="form.weekday" class="w-full border border-indigo-200 rounded-xl px-3 py-1.5 text-sm bg-white">
+                                <option :value="1">周一</option>
+                                <option :value="2">周二</option>
+                                <option :value="3">周三</option>
+                                <option :value="4">周四</option>
+                                <option :value="5">周五</option>
+                                <option :value="6">周六</option>
+                                <option :value="0">周日</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-900 mb-1">提醒时间</label>
+                            <input v-model="form.time" type="time" class="w-full border border-indigo-200 rounded-xl px-3 py-1.5 text-sm bg-white font-mono">
+                        </div>
+                    </div>
+
+                    <!-- 3. 每月重复参数 -->
+                    <div v-if="scheduleMode === 'monthly'" class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-900 mb-1">每月几号 (1-31)</label>
+                            <input v-model.number="form.monthly_day" type="number" min="1" max="31" placeholder="如 10" class="w-full border border-indigo-200 rounded-xl px-3 py-1.5 text-sm bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-900 mb-1">提醒时间</label>
+                            <input v-model="form.time" type="time" class="w-full border border-indigo-200 rounded-xl px-3 py-1.5 text-sm bg-white font-mono">
+                        </div>
+                    </div>
+
+                    <!-- 4. 农历每年参数 -->
+                    <div v-if="scheduleMode === 'lunar_yearly'" class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-xs font-bold text-amber-900 mb-1">农历月份</label>
+                            <input v-model.number="form.lunar_month" type="number" min="1" max="12" placeholder="如 9" class="w-full border border-amber-300 rounded-xl px-2.5 py-1.5 text-sm bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-amber-900 mb-1">农历日期</label>
+                            <input v-model.number="form.lunar_day" type="number" min="1" max="30" placeholder="如 18" class="w-full border border-amber-300 rounded-xl px-2.5 py-1.5 text-sm bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-amber-900 mb-1">时间</label>
+                            <input v-model="form.time" type="time" class="w-full border border-amber-300 rounded-xl px-2.5 py-1.5 text-sm bg-white font-mono">
+                        </div>
+                    </div>
+
+                    <!-- 5. 公历每年参数 -->
+                    <div v-if="scheduleMode === 'solar_yearly'" class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-900 mb-1">公历月份</label>
+                            <input v-model.number="form.yearly_month" type="number" min="1" max="12" placeholder="如 10" class="w-full border border-indigo-200 rounded-xl px-2.5 py-1.5 text-sm bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-900 mb-1">公历日期</label>
+                            <input v-model.number="form.yearly_day" type="number" min="1" max="31" placeholder="如 27" class="w-full border border-indigo-200 rounded-xl px-2.5 py-1.5 text-sm bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-900 mb-1">时间</label>
+                            <input v-model="form.time" type="time" class="w-full border border-indigo-200 rounded-xl px-2.5 py-1.5 text-sm bg-white font-mono">
+                        </div>
+                    </div>
+
+                    <!-- 6. 倒计时单次提醒 -->
+                    <div v-if="scheduleMode === 'once'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">相对延迟 (分钟)</label>
+                            <input v-model.number="form.delay_minutes" type="number" placeholder="如 15 (15分钟后触发)" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">或指定具体时间</label>
+                            <input v-model="form.run_at" type="datetime-local" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm bg-white font-mono">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 模板与通道选择 -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">排版模板</label>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">选择消息卡片模板</label>
                         <select v-model="form.template_id" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
                             <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">历法类型</label>
-                        <select v-model="form.calendar_type" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
-                            <option value="solar">☀️ 公历 (阳历)</option>
-                            <option value="lunar">🏮 农历 (阴历)</option>
-                        </select>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">已选通道 ({{ form.channel_ids.length }} 个)</label>
+                        <div class="text-xs text-indigo-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 truncate">
+                            {{ form.channel_ids.map(getChannelName).join(', ') || '未选择通道' }}
+                        </div>
                     </div>
                 </div>
 
+                <!-- 通道多选勾选区 -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">重复周期</label>
-                    <select v-model="form.repeat_type" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
-                        <option value="once">单次提醒</option>
-                        <option value="daily">每天重复</option>
-                        <option value="weekly">每周重复</option>
-                        <option value="monthly">每月重复</option>
-                        <option value="yearly">每年重复</option>
-                    </select>
-                </div>
-
-                <!-- 多通道勾选 -->
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                        <span>通知通道（支持多通道并发广播）</span>
-                        <span class="text-xs text-indigo-600 font-normal">已选 {{ form.channel_ids.length }} 个</span>
-                    </label>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
                         <label v-for="c in channels" :key="c.id" class="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-indigo-300 transition">
                             <input type="checkbox" :value="c.id" v-model="form.channel_ids" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
                             <span class="text-xs font-medium text-slate-800">{{ c.name }}</span>
@@ -275,54 +386,13 @@
                         </label>
                     </div>
                 </div>
-
-                <!-- 农历参数 -->
-                <div v-if="form.calendar_type === 'lunar'" class="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 grid grid-cols-3 gap-2">
-                    <div>
-                        <label class="block text-xs font-medium text-amber-800 mb-1">农历月份</label>
-                        <input v-model.number="form.lunar_month" type="number" min="1" max="12" placeholder="如 9" class="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-amber-800 mb-1">农历日期</label>
-                        <input v-model.number="form.lunar_day" type="number" min="1" max="30" placeholder="如 18" class="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-amber-800 mb-1">提醒时间</label>
-                        <input v-model="form.time" type="time" class="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
-                    </div>
-                </div>
-
-                <!-- 公历按周 -->
-                <div v-if="form.calendar_type === 'solar' && form.repeat_type === 'weekly'" class="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200/80 grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-xs font-medium text-indigo-800 mb-1">每周几</label>
-                        <select v-model.number="form.weekday" class="w-full border border-indigo-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
-                            <option :value="1">周一</option>
-                            <option :value="2">周二</option>
-                            <option :value="3">周三</option>
-                            <option :value="4">周四</option>
-                            <option :value="5">周五</option>
-                            <option :value="6">周六</option>
-                            <option :value="0">周日</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-indigo-800 mb-1">提醒时间</label>
-                        <input v-model="form.time" type="time" class="w-full border border-indigo-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
-                    </div>
-                </div>
-
-                <!-- 公历单次延时 -->
-                <div v-if="form.calendar_type === 'solar' && form.repeat_type === 'once'" class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <label class="block text-xs font-medium text-slate-700 mb-1">延迟时间 (分钟)</label>
-                    <input v-model.number="form.delay_minutes" type="number" placeholder="例如 15 (15分钟后提醒)" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white">
-                </div>
             </div>
 
             <div class="flex justify-end gap-2 mt-6 pt-3 border-t border-slate-100">
                 <button @click="showAddModal = false" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">取消</button>
-                <button @click="saveReminder" :disabled="submitting" class="px-5 py-2 text-sm bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 active:bg-indigo-800 shadow-sm">
-                    {{ submitting ? '保存中...' : '确认创建' }}
+                <button @click="saveReminder" :disabled="submitting" class="px-5 py-2 text-sm bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 active:bg-indigo-800 shadow-sm flex items-center gap-1.5">
+                    <span>✨</span>
+                    <span>{{ submitting ? '保存中...' : '确认创建任务' }}</span>
                 </button>
             </div>
         </div>
@@ -417,19 +487,54 @@ createApp({
         const submitting = ref(false);
         const sendingDirect = ref(false);
 
+        // 统一调度模式: daily | weekly | monthly | lunar_yearly | solar_yearly | once
+        const scheduleMode = ref('daily');
+
         const form = ref({
             title: '',
             content: '',
             calendar_type: 'solar',
-            repeat_type: 'once',
+            repeat_type: 'daily',
             template_id: 'tpl_standard',
             channel_ids: ['default_wx'],
-            delay_minutes: 15,
-            weekday: 5,
             time: '09:00',
+            weekday: 5,
+            monthly_day: 10,
+            yearly_month: 10,
+            yearly_day: 27,
             lunar_month: 9,
-            lunar_day: 18
+            lunar_day: 18,
+            delay_minutes: 15,
+            run_at: ''
         });
+
+        const setScheduleMode = (mode) => {
+            scheduleMode.value = mode;
+            if (mode === 'daily') {
+                form.value.calendar_type = 'solar';
+                form.value.repeat_type = 'daily';
+                if (!form.value.time) form.value.time = '09:00';
+            } else if (mode === 'weekly') {
+                form.value.calendar_type = 'solar';
+                form.value.repeat_type = 'weekly';
+                if (!form.value.time) form.value.time = '09:00';
+            } else if (mode === 'monthly') {
+                form.value.calendar_type = 'solar';
+                form.value.repeat_type = 'monthly';
+                if (!form.value.time) form.value.time = '09:00';
+            } else if (mode === 'lunar_yearly') {
+                form.value.calendar_type = 'lunar';
+                form.value.repeat_type = 'yearly';
+                if (!form.value.time) form.value.time = '09:00';
+            } else if (mode === 'solar_yearly') {
+                form.value.calendar_type = 'solar';
+                form.value.repeat_type = 'yearly';
+                if (!form.value.time) form.value.time = '09:00';
+            } else if (mode === 'once') {
+                form.value.calendar_type = 'solar';
+                form.value.repeat_type = 'once';
+            }
+        };
 
         const directSendForm = ref({
             message: '',
@@ -458,6 +563,7 @@ createApp({
             if (!form.value.template_id && templates.value.length > 0) {
                 form.value.template_id = templates.value[0].id;
             }
+            setScheduleMode(scheduleMode.value || 'daily');
             showAddModal.value = true;
         };
 
@@ -627,6 +733,7 @@ createApp({
 
         return {
             activeTab, reminders, channels, templates, loading, showAddModal, showAddChannelModal, showDirectSendModal, showTemplateModal, submitting, sendingDirect,
+            scheduleMode, setScheduleMode,
             form, channelForm, directSendForm, templateForm, openAddModal, openAddTemplateModal, editTemplate,
             loadData, saveReminder, deleteReminder, saveChannel, saveTemplate, deleteTemplate, sendDirectNow,
             getRepeatLabel, getChannelName, getTemplateName, formatTimestamp, formatTime
