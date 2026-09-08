@@ -262,9 +262,8 @@
 
                                 <!-- 操作菜单 (试发 + 预览 + 编辑 + 删除) -->
                                 <div class="flex items-center gap-1">
-                                    <button @click="testSendReminder(r)" class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-[11px] font-bold flex items-center gap-0.5 transition" title="手动试发测试消息（不影响原定周期计划）">
-                                        <span>🚀</span>
-                                        <span>试发</span>
+                                    <button @click="testSendReminder(r)" class="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-50 transition" title="立即试发（不影响原定周期）">
+                                        ✈️
                                     </button>
                                     <button @click="previewReminder(r)" class="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg hover:bg-slate-50 transition" title="预览卡片">
                                         👁️
