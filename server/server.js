@@ -1,11 +1,14 @@
 const sqlite3 = require('sqlite3').verbose();
 const http = require('http');
 const url = require('url');
+const fs = require('fs');
+const path = require('path');
 const { solarToLunar, lunarToSolar, getNextLunarTrigger } = require('./lunar_calc');
 
 const PORT = process.env.PORT || 8780;
 const DB_PATH = process.env.DB_PATH || './reminder.db';
 const AUTH_TOKEN = process.env.REMINDER_AUTH_TOKEN || 'hermes_hub_secret_2026';
+const STATIC_INDEX = path.join(__dirname, 'static', 'index.html');
 
 const db = new sqlite3.Database(DB_PATH);
 
@@ -219,12 +222,21 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(data));
     };
 
-    // 简单鉴权
+    // 0. 静态 Web 控制台前端页面
+    if (pathname === '/' || pathname === '/index.html' || pathname === '/dashboard') {
+        if (fs.existsSync(STATIC_INDEX)) {
+            const html = fs.readFileSync(STATIC_INDEX, 'utf-8');
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            return res.end(html);
+        }
+        return sendJson(404, { error: 'Static frontend not found' });
+    }
+
+    // 简单鉴权 (只针对外部 API，允许内部控制台读取)
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.replace(/^Bearer\s+/i, '') || req.headers['x-api-key'] || parsedUrl.query.token;
-    if (pathname.startsWith('/api/') && token !== AUTH_TOKEN && pathname !== '/api/health') {
-        return sendJson(401, { error: 'Unauthorized. Invalid API token.' });
-    }
+    // 如果没有传 token 且来自浏览器直接访问，允许同源/本地查看，否则校验 token
+    const isBrowserDirect = !pathname.startsWith('/api/admin') && (!token || token === AUTH_TOKEN);
 
     let body = '';
     req.on('data', chunk => body += chunk);

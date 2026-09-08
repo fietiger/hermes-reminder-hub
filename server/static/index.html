@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Hermes 提醒中枢控制台</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        .safe-bottom { padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem)); }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+<div id="app" class="max-w-4xl mx-auto p-4 sm:p-6 safe-bottom">
+    <!-- 顶部 Header -->
+    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200/80">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-2xl shadow-md shadow-indigo-100">
+                ⏰
+            </div>
+            <div>
+                <h1 class="text-xl sm:text-2xl font-bold text-slate-900">Hermes 提醒中枢</h1>
+                <p class="text-xs sm:text-sm text-slate-500">智能农历 / 阳历调度 · 多通道微信直通路由</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button @click="loadData" :disabled="loading" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-slate-700">
+                <span>🔄</span>
+                <span>{{ loading ? '刷新中...' : '刷新数据' }}</span>
+            </button>
+            <button @click="showAddModal = true" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs sm:text-sm font-medium transition shadow-sm flex items-center gap-1.5">
+                <span>➕</span>
+                <span>新建提醒</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 导航 Tab -->
+    <div class="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2">
+        <button @click="activeTab = 'reminders'" :class="['px-4 py-2 rounded-xl text-sm font-medium transition', activeTab === 'reminders' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-100']">
+            📅 提醒任务 ({{ reminders.length }})
+        </button>
+        <button @click="activeTab = 'channels'" :class="['px-4 py-2 rounded-xl text-sm font-medium transition', activeTab === 'channels' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-100']">
+            📡 通知通道 ({{ channels.length }})
+        </button>
+    </div>
+
+    <!-- 1. 提醒任务列表 -->
+    <div v-if="activeTab === 'reminders'" class="space-y-3.5">
+        <div v-if="reminders.length === 0" class="bg-white rounded-2xl border border-slate-200 text-center py-16 text-slate-400">
+            <div class="text-5xl mb-3">📭</div>
+            <p class="text-sm">暂无活跃的提醒任务，点击右上角新建一个吧！</p>
+        </div>
+
+        <div v-for="r in reminders" :key="r.id" class="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-sm hover:shadow transition">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span :class="['text-xs px-2.5 py-0.5 rounded-full font-medium border', r.calendar_type === 'lunar' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200']">
+                        {{ r.calendar_type === 'lunar' ? '🏮 农历' : '☀️ 公历' }}
+                    </span>
+                    <span class="text-xs px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-medium">
+                        {{ getRepeatLabel(r.repeat_type) }}
+                    </span>
+                    <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-mono">
+                        通道: {{ getChannelName(r.channel_id) }}
+                    </span>
+                    <span v-if="r.status === 'completed'" class="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-600">已完成</span>
+                </div>
+                <div class="flex items-center gap-1.5 self-end sm:self-auto">
+                    <button @click="deleteReminder(r.id)" class="px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded-lg transition font-medium border border-rose-100">
+                        删除
+                    </button>
+                </div>
+            </div>
+
+            <h3 v-if="r.title" class="text-base font-bold text-slate-900 mb-1">{{ r.title }}</h3>
+            <p class="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap bg-slate-50/70 p-3 rounded-xl border border-slate-100 mb-3">{{ r.content }}</p>
+
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs text-slate-400 pt-2 border-t border-slate-100">
+                <div class="flex items-center gap-2">
+                    <span>ID: {{ r.id }}</span>
+                    <span>创建: {{ formatTime(r.created_at) }}</span>
+                </div>
+                <div class="font-medium text-indigo-600 flex items-center gap-1">
+                    <span>⏰ 下次触发 (北京时间):</span>
+                    <span class="font-mono text-sm bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">{{ formatTimestamp(r.next_trigger_at) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 通道列表 -->
+    <div v-if="activeTab === 'channels'" class="space-y-3.5">
+        <div class="flex justify-between items-center mb-2">
+            <p class="text-xs text-slate-500">已挂载的接收端通道（支持小马、小牛、外部微信直通/Webhook）</p>
+            <button @click="showAddChannelModal = true" class="px-3 py-1.5 bg-slate-800 text-white rounded-xl text-xs font-medium hover:bg-slate-700 transition">
+                ➕ 挂载新通道
+            </button>
+        </div>
+
+        <div v-for="c in channels" :key="c.id" class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm">
+            <div class="flex justify-between items-start mb-2">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <span>{{ c.name }}</span>
+                        <span class="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{{ c.id }}</span>
+                    </h3>
+                    <p class="text-xs text-slate-400 font-mono mt-0.5 break-all">接口: {{ c.endpoint_url }}</p>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
+                    {{ c.enabled ? '正常启用' : '已停用' }}
+                </span>
+            </div>
+            <div class="text-xs text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
+                <span>类型: {{ c.type }}</span>
+                <span>创建时间: {{ formatTime(c.created_at) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新建提醒弹窗 -->
+    <div v-if="showAddModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <h2 class="text-lg font-bold text-slate-900">新建提醒任务</h2>
+                <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 text-lg p-1">✕</button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">提醒标题（可选）</label>
+                    <input v-model="form.title" type="text" placeholder="例如：爸妈生日 / 信用卡还款 / 喝水" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">提醒正文内容（必填）</label>
+                    <textarea v-model="form.content" placeholder="输入要推送给微信的详细内容..." class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm h-24 resize-none outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">历法类型</label>
+                        <select v-model="form.calendar_type" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
+                            <option value="solar">☀️ 公历 (阳历)</option>
+                            <option value="lunar">🏮 农历 (阴历)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">重复周期</label>
+                        <select v-model="form.repeat_type" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
+                            <option value="once">单次提醒</option>
+                            <option value="daily">每天重复</option>
+                            <option value="weekly">每周重复</option>
+                            <option value="monthly">每月重复</option>
+                            <option value="yearly">每年重复</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 农历参数 -->
+                <div v-if="form.calendar_type === 'lunar'" class="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-amber-800 mb-1">农历月份</label>
+                        <input v-model.number="form.lunar_month" type="number" min="1" max="12" placeholder="如 9" class="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-amber-800 mb-1">农历日期</label>
+                        <input v-model.number="form.lunar_day" type="number" min="1" max="30" placeholder="如 18" class="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-amber-800 mb-1">提醒时间</label>
+                        <input v-model="form.time" type="time" class="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
+                    </div>
+                </div>
+
+                <!-- 公历按周 -->
+                <div v-if="form.calendar_type === 'solar' && form.repeat_type === 'weekly'" class="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200/80 grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-indigo-800 mb-1">每周几</label>
+                        <select v-model.number="form.weekday" class="w-full border border-indigo-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
+                            <option :value="1">周一</option>
+                            <option :value="2">周二</option>
+                            <option :value="3">周三</option>
+                            <option :value="4">周四</option>
+                            <option :value="5">周五</option>
+                            <option :value="6">周六</option>
+                            <option :value="0">周日</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-indigo-800 mb-1">提醒时间</label>
+                        <input v-model="form.time" type="time" class="w-full border border-indigo-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
+                    </div>
+                </div>
+
+                <!-- 公历单次延时 -->
+                <div v-if="form.calendar_type === 'solar' && form.repeat_type === 'once'" class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <label class="block text-xs font-medium text-slate-700 mb-1">延迟时间 (分钟)</label>
+                    <input v-model.number="form.delay_minutes" type="number" placeholder="例如 15 (15分钟后提醒)" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">推送通道</label>
+                    <select v-model="form.channel_id" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
+                        <option v-for="c in channels" :key="c.id" :value="c.id">{{ c.name }} ({{ c.id }})</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-6 pt-3 border-t border-slate-100">
+                <button @click="showAddModal = false" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">取消</button>
+                <button @click="saveReminder" :disabled="submitting" class="px-5 py-2 text-sm bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 active:bg-indigo-800 shadow-sm">
+                    {{ submitting ? '保存中...' : '确认创建' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 挂载通道弹窗 -->
+    <div v-if="showAddChannelModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg p-4 sm:p-6">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <h2 class="text-lg font-bold text-slate-900">挂载新通知通道</h2>
+                <button @click="showAddChannelModal = false" class="text-slate-400 hover:text-slate-600 text-lg p-1">✕</button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">通道 ID (唯一)</label>
+                    <input v-model="channelForm.id" type="text" placeholder="例如 xiaoniu_wx" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">通道名称</label>
+                    <input v-model="channelForm.name" type="text" placeholder="例如 小牛VPS微信直通" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">微信直通 / Webhook 接口 URL</label>
+                    <input v-model="channelForm.endpoint_url" type="text" placeholder="例如 http://198.200.49.120:8765/send" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Token 密钥 (可选)</label>
+                    <input v-model="channelForm.auth_key" type="text" placeholder="通信鉴权密钥" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-5 pt-3 border-t border-slate-100">
+                <button @click="showAddChannelModal = false" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">取消</button>
+                <button @click="saveChannel" class="px-5 py-2 text-sm bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800">保存通道</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const { createApp, ref, onMounted } = Vue;
+
+createApp({
+    setup() {
+        const activeTab = ref('reminders');
+        const reminders = ref([]);
+        const channels = ref([]);
+        const loading = ref(false);
+        const showAddModal = ref(false);
+        const showAddChannelModal = ref(false);
+        const submitting = ref(false);
+
+        const form = ref({
+            title: '',
+            content: '',
+            calendar_type: 'solar',
+            repeat_type: 'once',
+            channel_id: 'default_wx',
+            delay_minutes: 15,
+            weekday: 5,
+            time: '09:00',
+            lunar_month: 9,
+            lunar_day: 18
+        });
+
+        const channelForm = ref({
+            id: '',
+            name: '',
+            endpoint_url: '',
+            auth_key: 'hermes-weixin-direct-key-2024'
+        });
+
+        const loadData = async () => {
+            loading.value = true;
+            try {
+                const [rRes, cRes] = await Promise.all([
+                    fetch('/api/reminders').then(r => r.json()),
+                    fetch('/api/channels').then(r => r.json())
+                ]);
+                reminders.value = rRes.reminders || [];
+                channels.value = cRes.channels || [];
+                if (channels.value.length > 0 && !form.value.channel_id) {
+                    form.value.channel_id = channels.value[0].id;
+                }
+            } catch (e) {
+                console.error('加载失败:', e);
+            } finally {
+                loading.value = false;
+            }
+        };
+
+        const saveReminder = async () => {
+            if (!form.value.content.trim()) return alert('请填写提醒内容');
+            submitting.value = true;
+            try {
+                const res = await fetch('/api/reminders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(form.value)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showAddModal.value = false;
+                    form.value.title = '';
+                    form.value.content = '';
+                    await loadData();
+                } else {
+                    alert('创建失败: ' + (data.error || '未知错误'));
+                }
+            } catch (e) {
+                alert('请求异常: ' + e.message);
+            } finally {
+                submitting.value = false;
+            }
+        };
+
+        const deleteReminder = async (id) => {
+            if (!confirm('确定删除该提醒？')) return;
+            try {
+                await fetch('/api/reminders/' + id, { method: 'DELETE' });
+                await loadData();
+            } catch (e) {
+                alert('删除失败: ' + e.message);
+            }
+        };
+
+        const saveChannel = async () => {
+            if (!channelForm.value.id || !channelForm.value.endpoint_url) return alert('请填写通道 ID 和接口 URL');
+            try {
+                await fetch('/api/channels', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(channelForm.value)
+                });
+                showAddChannelModal.value = false;
+                await loadData();
+            } catch (e) {
+                alert('添加通道失败: ' + e.message);
+            }
+        };
+
+        const getRepeatLabel = (t) => {
+            const map = { once: '单次', daily: '每天', weekly: '每周', monthly: '每月', yearly: '每年' };
+            return map[t] || t;
+        };
+
+        const getChannelName = (id) => {
+            const c = channels.value.find(x => x.id === id);
+            return c ? c.name : id;
+        };
+
+        const formatTimestamp = (ts) => {
+            if (!ts) return 'N/A';
+            const d = new Date(ts);
+            return d.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+        };
+
+        const formatTime = (ts) => {
+            if (!ts) return '';
+            return new Date(ts).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+        };
+
+        onMounted(() => {
+            loadData();
+        });
+
+        return {
+            activeTab, reminders, channels, loading, showAddModal, showAddChannelModal, submitting,
+            form, channelForm,
+            loadData, saveReminder, deleteReminder, saveChannel,
+            getRepeatLabel, getChannelName, formatTimestamp, formatTime
+        };
+    }
+}).mount('#app');
+</script>
+</body>
+</html>
