@@ -148,10 +148,10 @@ function calculateNextTrigger(calendarType, repeatType, rule, fromTime = Date.no
 
 // 执行单通道消息投递 (原始消息投递)
 function deliverDirectRaw(channel, content, targetUser, callback) {
-    const payload = JSON.stringify({
+    const payload = Buffer.from(JSON.stringify({
         content: content,
         to_user: targetUser || channel.target_user || ''
-    });
+    }), 'utf-8');
 
     const targetUrl = url.parse(channel.endpoint_url);
     const req = http.request({
@@ -160,7 +160,8 @@ function deliverDirectRaw(channel, content, targetUser, callback) {
         path: targetUrl.path,
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
+            'Content-Length': payload.length,
             'Authorization': channel.auth_key ? `Bearer ${channel.auth_key}` : '',
             'X-API-Key': channel.auth_key || ''
         },
