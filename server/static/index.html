@@ -113,28 +113,28 @@
                         <span class="text-lg">📅</span>
                         <span>定时提醒</span>
                     </div>
-                    <span v-if="reminders.length" class="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold">{ reminders.length }</span>
+                    <span v-if="reminders.length" class="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold">{{ reminders.length }}</span>
                 </button>
                 <button @click="activeTab = 'templates'" :class="['w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition', activeTab === 'templates' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-600 hover:bg-slate-50']">
                     <div class="flex items-center gap-3">
                         <span class="text-lg">🎨</span>
                         <span>消息模板</span>
                     </div>
-                    <span v-if="templates.length" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">{ templates.length }</span>
+                    <span v-if="templates.length" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">{{ templates.length }}</span>
                 </button>
                 <button @click="activeTab = 'history'" :class="['w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition', activeTab === 'history' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-600 hover:bg-slate-50']">
                     <div class="flex items-center gap-3">
                         <span class="text-lg">📜</span>
                         <span>发送历史</span>
                     </div>
-                    <span v-if="sendHistory.length" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">{ sendHistory.length }</span>
+                    <span v-if="sendHistory.length" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">{{ sendHistory.length }}</span>
                 </button>
                 <button @click="activeTab = 'channels'" :class="['w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition', activeTab === 'channels' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-600 hover:bg-slate-50']">
                     <div class="flex items-center gap-3">
                         <span class="text-lg">📡</span>
                         <span>通知通道</span>
                     </div>
-                    <span v-if="channels.length" class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold">{ channels.length }</span>
+                    <span v-if="channels.length" class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold">{{ channels.length }}</span>
                 </button>
             </nav>
         </div>
@@ -192,10 +192,10 @@
         <header class="hidden md:flex items-center justify-between px-8 py-5 border-b border-slate-200/60 bg-white/80 backdrop-blur-md sticky top-0 z-20">
             <div>
                 <h2 class="text-xl font-black text-slate-900 tracking-tight">
-                    { activeTab === 'reminders' ? '📅 活跃的定时提醒' : (activeTab === 'templates' ? '🎨 消息卡片模板库' : (activeTab === 'history' ? '📜 消息发送历史' : '📡 通知通道管理')) }
+                    {{ activeTab === 'reminders' ? '📅 活跃的定时提醒' : (activeTab === 'templates' ? '🎨 消息卡片模板库' : (activeTab === 'history' ? '📜 消息发送历史' : '📡 通知通道管理')) }}
                 </h2>
                 <p class="text-xs text-slate-400 font-medium mt-0.5">
-                    { activeTab === 'reminders' ? '支持通用周期、阴历农历与公历阳历高精度自动调度' : (activeTab === 'templates' ? '自定义微信 Markdown 卡片排版风格与预设模板' : (activeTab === 'history' ? '查看定时触发与即时直发的真实推送历史记录' : '配置与挂载微信直通或自定义 Webhook 通道')) }
+                    {{ activeTab === 'reminders' ? '支持通用周期、阴历农历与公历阳历高精度自动调度' : (activeTab === 'templates' ? '自定义微信 Markdown 卡片排版风格与预设模板' : (activeTab === 'history' ? '查看定时触发与即时直发的真实推送历史记录' : '配置与挂载微信直通或自定义 Webhook 通道')) }}
                 </p>
             </div>
 
@@ -223,7 +223,7 @@
             <div v-if="activeTab === 'reminders'" class="space-y-4">
                 <!-- 移动端顶部计数 -->
                 <div class="md:hidden flex items-center justify-between px-1">
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">活跃中的定时任务 ({ reminders.length })</span>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">活跃中的定时任务 ({{ reminders.length }})</span>
                     <button @click="loadData" :disabled="loading" class="text-xs text-indigo-600 font-medium flex items-center gap-1 hover:underline">
                         <span :class="loading ? 'animate-spin' : ''">🔄</span> 刷新
                     </button>
@@ -250,13 +250,13 @@
                             <div class="flex items-center justify-between gap-2 mb-2.5">
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <span :class="['text-[11px] px-2.5 py-0.5 rounded-full font-bold', r.calendar_type === 'lunar' ? 'bg-amber-100 text-amber-800' : (r.calendar_type === 'solar' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800')]">
-                                        { getCategoryBadge(r.calendar_type) }
+                                        {{ getCategoryBadge(r.calendar_type) }}
                                     </span>
                                     <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium border border-purple-100">
-                                        { getRepeatLabel(r.repeat_type, r.calendar_type) }
+                                        {{ getRepeatLabel(r.repeat_type, r.calendar_type) }}
                                     </span>
                                     <span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium truncate max-w-[120px]">
-                                        🎨 { getTemplateName(r.template_id) }
+                                        🎨 {{ getTemplateName(r.template_id) }}
                                     </span>
                                 </div>
 
@@ -276,8 +276,8 @@
 
                             <!-- 标题与内容 (点击编辑) -->
                             <div @click="editReminder(r)" class="cursor-pointer">
-                                <h3 v-if="r.title" class="text-sm md:text-base font-bold text-slate-900 mb-1 leading-snug group-hover:text-indigo-600 transition">{ r.title }</h3>
-                                <p class="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-slate-50 group-hover:bg-slate-100/70 p-3 rounded-xl border border-slate-100 mb-3 transition max-h-32 overflow-y-auto">{ r.content }</p>
+                                <h3 v-if="r.title" class="text-sm md:text-base font-bold text-slate-900 mb-1 leading-snug group-hover:text-indigo-600 transition">{{ r.title }}</h3>
+                                <p class="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-slate-50 group-hover:bg-slate-100/70 p-3 rounded-xl border border-slate-100 mb-3 transition max-h-32 overflow-y-auto">{{ r.content }}</p>
                             </div>
                         </div>
 
@@ -285,11 +285,11 @@
                         <div class="flex items-center justify-between text-[11px] pt-2.5 border-t border-slate-100">
                             <div class="flex items-center gap-1.5 text-slate-400">
                                 <span>📡</span>
-                                <span class="truncate max-w-[130px]">{ (r.channel_ids || []).map(getChannelName).join(', ') }</span>
+                                <span class="truncate max-w-[130px]">{{ (r.channel_ids || []).map(getChannelName).join(', ') }}</span>
                             </div>
                             <div class="flex items-center gap-1 text-indigo-600 font-bold bg-indigo-50/90 px-2.5 py-1 rounded-lg">
                                 <span>⏰</span>
-                                <span class="font-mono">{ formatTimestamp(r.next_trigger_at) }</span>
+                                <span class="font-mono">{{ formatTimestamp(r.next_trigger_at) }}</span>
                             </div>
                         </div>
                     </div>
@@ -301,7 +301,7 @@
             <!-- ========================================== -->
             <div v-if="activeTab === 'templates'" class="space-y-4">
                 <div class="flex items-center justify-between px-1">
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Markdown 消息模板库 ({ templates.length })</span>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Markdown 消息模板库 ({{ templates.length }})</span>
                     <button @click="openAddTemplateModal" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl text-xs font-bold flex items-center gap-1 transition">
                         ➕ 新建自定义模板
                     </button>
@@ -312,13 +312,13 @@
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <div class="flex items-center gap-2">
-                                    <h3 class="text-sm font-bold text-slate-900">{ t.name }</h3>
+                                    <h3 class="text-sm font-bold text-slate-900">{{ t.name }}</h3>
                                     <span v-if="t.is_default" class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold border border-indigo-100">默认</span>
                                 </div>
-                                <span class="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{ t.id }</span>
+                                <span class="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{{ t.id }}</span>
                             </div>
 
-                            <pre class="bg-slate-50 border border-slate-100 p-3 rounded-xl text-xs text-slate-700 font-mono whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">{ t.content }</pre>
+                            <pre class="bg-slate-50 border border-slate-100 p-3 rounded-xl text-xs text-slate-700 font-mono whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">{{ t.content }}</pre>
                         </div>
 
                         <div class="flex items-center justify-between pt-2.5 border-t border-slate-100">
@@ -339,7 +339,7 @@
             <!-- ========================================== -->
             <div v-if="activeTab === 'channels'" class="space-y-4">
                 <div class="flex items-center justify-between px-1">
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">已连接终端通道 ({ channels.length })</span>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">已连接终端通道 ({{ channels.length }})</span>
                     <button @click="showAddChannelModal = true" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl text-xs font-bold flex items-center gap-1 transition">
                         ➕ 挂载新通道
                     </button>
@@ -353,18 +353,18 @@
                                     📡
                                 </div>
                                 <div>
-                                    <h3 class="text-sm font-bold text-slate-900 leading-none">{ c.name }</h3>
-                                    <span class="text-[10px] font-mono text-slate-400 mt-0.5 block">{ c.id }</span>
+                                    <h3 class="text-sm font-bold text-slate-900 leading-none">{{ c.name }}</h3>
+                                    <span class="text-[10px] font-mono text-slate-400 mt-0.5 block">{{ c.id }}</span>
                                 </div>
                             </div>
                             <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold border border-emerald-200">
-                                { c.enabled ? '正常连通' : '已停用' }
+                                {{ c.enabled ? '正常连通' : '已停用' }}
                             </span>
                         </div>
 
                         <div class="text-xs text-slate-600 font-mono bg-slate-50 p-2.5 rounded-xl border border-slate-100 break-all">
                             <div class="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Endpoint URL</div>
-                            { c.endpoint_url }
+                            {{ c.endpoint_url }}
                         </div>
                     </div>
                 </div>
@@ -375,7 +375,7 @@
             <!-- ========================================== -->
             <div v-if="activeTab === 'history'" class="space-y-4">
                 <div class="flex items-center justify-between px-1">
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">最近 { sendHistory.length } 条发送记录</span>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">最近 {{ sendHistory.length }} 条发送记录</span>
                     <button @click="loadSendHistory()" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl text-xs font-bold flex items-center gap-1 transition">
                         🔄 刷新历史
                     </button>
@@ -406,14 +406,14 @@
                                         'bg-slate-100 text-slate-500']">
                                         { item.status === 'success' ? '✓' : item.status === 'failed' ? '✗' : '⏸' }
                                     </span>
-                                    <span class="text-xs font-bold text-slate-800">{ item.channel_name || item.channel_id }</span>
+                                    <span class="text-xs font-bold text-slate-800">{{ item.channel_name || item.channel_id }}</span>
                                 </div>
-                                <span class="text-[10px] font-medium text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">{ formatRelativeTime(item.delivered_at) }</span>
+                                <span class="text-[10px] font-medium text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">{{ formatRelativeTime(item.delivered_at) }}</span>
                             </div>
 
                             <!-- 消息内容预览 -->
                             <div class="bg-slate-50 rounded-xl p-3 text-xs text-slate-600 whitespace-pre-wrap max-h-32 overflow-y-auto border border-slate-100 font-mono leading-relaxed">
-                                { item.message || '(无内容记录)' }
+                                {{ item.message || '(无内容记录)' }}
                             </div>
                         </div>
 
@@ -467,8 +467,8 @@
 
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                 <h2 class="text-base md:text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <span>{ isEditingReminder ? '✏️' : '⏰' }</span>
-                    <span>{ isEditingReminder ? '编辑定时提醒' : '新建智能提醒' }</span>
+                    <span>{{ isEditingReminder ? '✏️' : '⏰' }}</span>
+                    <span>{{ isEditingReminder ? '编辑定时提醒' : '新建智能提醒' }}</span>
                 </h2>
                 <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 text-base">✕</button>
             </div>
@@ -494,9 +494,9 @@
                             </div>
                             <div>
                                 <div class="text-sm font-bold text-indigo-950 flex items-center gap-2">
-                                    <span>{ scheduleSummary }</span>
+                                    <span>{{ scheduleSummary }}</span>
                                     <span class="text-[10px] px-2 py-0.5 rounded-full bg-white/80 text-indigo-700 font-bold border border-indigo-200">
-                                        { getCategoryBadge(form.calendar_type) }
+                                        {{ getCategoryBadge(form.calendar_type) }}
                                     </span>
                                 </div>
                                 <p class="text-[11px] text-indigo-600/80 mt-0.5">点击重新配置时间与重复规律</p>
@@ -516,18 +516,18 @@
                     </div>
                     <select v-model="form.template_id" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm bg-slate-50 focus:bg-white outline-none">
                         <option v-for="t in templates" :key="t.id" :value="t.id">
-                            { t.name }
+                            {{ t.name }}
                         </option>
                     </select>
                 </div>
 
                 <!-- 目标通道多选 -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">推送终端通道 ({ (form.channel_ids || []).length }个)</label>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">推送终端通道 ({{ (form.channel_ids || []).length }}个)</label>
                     <div class="grid grid-cols-2 gap-2">
                         <label v-for="c in channels" :key="c.id" :class="['border rounded-xl p-2.5 flex items-center gap-2 cursor-pointer transition text-xs font-medium', (form.channel_ids || []).includes(c.id) ? 'bg-indigo-50 border-indigo-400 text-indigo-900 font-bold' : 'border-slate-200 bg-slate-50 text-slate-600']">
                             <input type="checkbox" :value="c.id" v-model="form.channel_ids" class="rounded text-indigo-600">
-                            <span class="truncate">{ c.name }</span>
+                            <span class="truncate">{{ c.name }}</span>
                         </label>
                     </div>
                 </div>
@@ -541,7 +541,7 @@
                 <div class="flex gap-2">
                     <button @click="showAddModal = false" class="px-4 py-2 text-xs text-slate-500 hover:text-slate-700 rounded-xl">取消</button>
                     <button @click="saveReminder" :disabled="submitting" class="ios-btn-active px-6 py-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition">
-                        { isEditingReminder ? '保存修改' : '立即创建' }
+                        {{ isEditingReminder ? '保存修改' : '立即创建' }}
                     </button>
                 </div>
             </div>
@@ -728,7 +728,7 @@
                     <select v-model="directSendForm.template_id" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-xs bg-slate-50">
                         <option value="tpl_direct_default">标准即时通知模板 (推荐)</option>
                         <option value="tpl_raw">纯文本不包裹模板</option>
-                        <option v-for="t in templates" :key="t.id" :value="t.id">{ t.name }</option>
+                        <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
                     </select>
                 </div>
 
@@ -737,7 +737,7 @@
                     <div class="grid grid-cols-2 gap-2">
                         <label v-for="c in channels" :key="c.id" :class="['border rounded-xl p-2.5 flex items-center gap-2 cursor-pointer transition text-xs font-medium', (directSendForm.channel_ids || []).includes(c.id) ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-bold' : 'border-slate-200 bg-slate-50 text-slate-600']">
                             <input type="checkbox" :value="c.id" v-model="directSendForm.channel_ids" class="rounded text-emerald-600">
-                            <span class="truncate">{ c.name }</span>
+                            <span class="truncate">{{ c.name }}</span>
                         </label>
                     </div>
                 </div>
@@ -785,7 +785,7 @@
             <div class="md:hidden w-10 h-1 bg-slate-300 rounded-full mx-auto mb-3"></div>
 
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                <h2 class="text-base font-bold text-slate-900">{ templateForm.id ? '编辑消息模板' : '新建消息模板' }</h2>
+                <h2 class="text-base font-bold text-slate-900">{{ templateForm.id ? '编辑消息模板' : '新建消息模板' }}</h2>
                 <button @click="showTemplateModal = false" class="text-slate-400 p-1 text-base">✕</button>
             </div>
 
