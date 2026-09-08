@@ -1,545 +1,607 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Hermes 提醒中枢控制台</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>提醒中枢</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, sans-serif; 
             -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
         }
-        .safe-bottom { padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem)); }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
-        .mode-tab.active { background-color: #4f46e5; color: white; }
+        input, textarea, select {
+            user-select: text;
+        }
+        .safe-top { padding-top: max(0.75rem, env(safe-area-inset-top, 0.75rem)); }
+        .safe-bottom-tab { padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem)); }
+        .safe-bottom-content { padding-bottom: max(5.5rem, calc(env(safe-area-inset-bottom, 0px) + 5rem)); }
+        
+        /* 移动端原生毛玻璃和弹窗手感 */
+        .glass-header {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .glass-tabbar {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        
+        .ios-btn-active:active {
+            transform: scale(0.97);
+            opacity: 0.85;
+            transition: transform 0.1s ease;
+        }
+        .ios-card-active:active {
+            transform: scale(0.985);
+            transition: transform 0.12s ease;
+        }
+
         .wechat-preview-card {
             background: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
             padding: 16px;
-            border: 1px solid #e5e7eb;
+            border: 1px solid #f1f5f9;
         }
-        .wechat-preview-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; color: #111827; }
-        .wechat-preview-card blockquote { border-left: 3px solid #6366f1; padding-left: 8px; color: #4b5563; font-size: 0.85rem; margin: 8px 0; background: #f8fafc; border-radius: 0 4px 4px 0; }
+        .wechat-preview-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; color: #0f172a; }
+        .wechat-preview-card blockquote { border-left: 3px solid #4f46e5; padding-left: 10px; color: #475569; font-size: 0.82rem; margin: 8px 0; background: #f8fafc; border-radius: 0 6px 6px 0; padding-top: 4px; padding-bottom: 4px; }
         .wechat-preview-card hr { margin: 12px 0; border-color: #f1f5f9; }
-        .wechat-preview-card p { line-height: 1.6; font-size: 0.9rem; color: #374151; white-space: pre-wrap; }
-        .wechat-preview-card pre { background: #f1f5f9; padding: 8px; border-radius: 6px; font-size: 0.8rem; overflow-x: auto; margin: 8px 0; }
-        .wechat-preview-card code { font-family: monospace; background: #f1f5f9; padding: 2px 4px; border-radius: 4px; }
-        .wechat-preview-card em { font-size: 0.75rem; color: #9ca3af; }
+        .wechat-preview-card p { line-height: 1.6; font-size: 0.88rem; color: #334155; white-space: pre-wrap; }
+        .wechat-preview-card pre { background: #f1f5f9; padding: 10px; border-radius: 8px; font-size: 0.78rem; overflow-x: auto; margin: 8px 0; }
+        .wechat-preview-card code { font-family: ui-monospace, monospace; background: #f1f5f9; padding: 2px 4px; border-radius: 4px; }
+        .wechat-preview-card em { font-size: 0.72rem; color: #94a3b8; font-style: normal; display: block; margin-top: 4px; }
+        
+        ::-webkit-scrollbar { width: 0px; height: 0px; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800">
-<div id="app" class="max-w-4xl mx-auto p-4 sm:p-6 safe-bottom">
-    <!-- 顶部 Header -->
-    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200/80">
-        <div class="flex items-center gap-3">
-            <div class="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-2xl shadow-md shadow-indigo-100">
+<body class="bg-slate-100/80 text-slate-800 min-h-full flex flex-col antialiased">
+<div id="app" class="flex-1 flex flex-col max-w-lg mx-auto w-full bg-slate-50 min-h-screen shadow-2xl relative">
+
+    <!-- 顶部原生 App 导航栏 (Sticky Header) -->
+    <header class="sticky top-0 z-30 glass-header border-b border-slate-200/70 safe-top px-4 py-2.5 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center text-sm font-bold shadow-sm shadow-indigo-200">
                 ⏰
             </div>
             <div>
-                <h1 class="text-xl sm:text-2xl font-bold text-slate-900">Hermes 提醒中枢</h1>
-                <p class="text-xs sm:text-sm text-slate-500">农历 & 公历平级调度 · 自定义 Markdown 消息卡片 · 实时预览</p>
+                <h1 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-1">
+                    <span>提醒中枢</span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                </h1>
+                <p class="text-[10px] text-slate-400 font-medium">Hermes Reminder Hub</p>
             </div>
         </div>
-        <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            <button @click="showDirectSendModal = true" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs sm:text-sm font-medium transition shadow-sm flex items-center gap-1.5">
+
+        <div class="flex items-center gap-1.5">
+            <!-- ⚡ 即时直发快捷按钮 -->
+            <button @click="showDirectSendModal = true" class="ios-btn-active px-3 py-1.5 bg-emerald-500 text-white rounded-full text-xs font-semibold shadow-sm flex items-center gap-1">
                 <span>⚡</span>
-                <span>即时直发</span>
+                <span>直发</span>
             </button>
-            <button @click="openAddModal" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs sm:text-sm font-medium transition shadow-sm flex items-center gap-1.5">
+            <!-- ➕ 新建提醒按钮 -->
+            <button @click="openAddModal" class="ios-btn-active px-3 py-1.5 bg-indigo-600 text-white rounded-full text-xs font-semibold shadow-sm flex items-center gap-1">
                 <span>➕</span>
-                <span>新建提醒</span>
-            </button>
-            <button @click="loadData" :disabled="loading" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-1 text-slate-700">
-                <span>🔄</span>
+                <span>创建</span>
             </button>
         </div>
     </header>
 
-    <!-- 导航 Tab -->
-    <div class="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2 overflow-x-auto">
-        <button @click="activeTab = 'reminders'" :class="['px-4 py-2 rounded-xl text-sm font-medium transition flex-none', activeTab === 'reminders' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-100']">
-            📅 定时提醒 ({{ reminders.length }})
-        </button>
-        <button @click="activeTab = 'templates'" :class="['px-4 py-2 rounded-xl text-sm font-medium transition flex-none', activeTab === 'templates' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-100']">
-            🎨 消息模板 ({{ templates.length }})
-        </button>
-        <button @click="activeTab = 'channels'" :class="['px-4 py-2 rounded-xl text-sm font-medium transition flex-none', activeTab === 'channels' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-100']">
-            📡 通知通道 ({{ channels.length }})
-        </button>
-    </div>
+    <!-- 主滑动内容容器 (Content Area) -->
+    <main class="flex-1 px-3.5 py-4 safe-bottom-content overflow-y-auto space-y-3.5">
 
-    <!-- 1. 提醒任务列表 -->
-    <div v-if="activeTab === 'reminders'" class="space-y-3.5">
-        <div v-if="reminders.length === 0" class="bg-white rounded-2xl border border-slate-200 text-center py-16 text-slate-400">
-            <div class="text-5xl mb-3">📭</div>
-            <p class="text-sm">暂无活跃的定时提醒，点击右上角新建一个吧！</p>
-        </div>
+        <!-- 1. 定时提醒列表 (Reminders Tab) -->
+        <div v-if="activeTab === 'reminders'" class="space-y-3">
+            <div class="flex items-center justify-between px-1">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">活跃中的定时任务 ({{ reminders.length }})</span>
+                <button @click="loadData" :disabled="loading" class="text-xs text-indigo-600 font-medium flex items-center gap-1 hover:underline">
+                    <span :class="loading ? 'animate-spin' : ''">🔄</span> 刷新
+                </button>
+            </div>
 
-        <div v-for="r in reminders" :key="r.id" class="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-sm hover:shadow transition">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
-                <div class="flex items-center gap-2 flex-wrap">
-                    <span :class="['text-xs px-2.5 py-0.5 rounded-full font-medium border', r.calendar_type === 'lunar' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200']">
-                        {{ r.calendar_type === 'lunar' ? '🏮 农历' : '☀️ 公历' }}
-                    </span>
-                    <span class="text-xs px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-medium">
-                        {{ getRepeatLabel(r.repeat_type, r.calendar_type) }}
-                    </span>
-                    <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
-                        🎨 {{ getTemplateName(r.template_id) }}
-                    </span>
-                    <div class="flex items-center gap-1 flex-wrap">
-                        <span v-for="cId in r.channel_ids" :key="cId" class="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-medium">
-                            📡 {{ getChannelName(cId) }}
+            <!-- 空状态 -->
+            <div v-if="reminders.length === 0" class="bg-white rounded-2xl border border-slate-200/80 text-center py-16 px-4 shadow-sm">
+                <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-slate-100 flex items-center justify-center text-3xl">
+                    📭
+                </div>
+                <h3 class="text-sm font-bold text-slate-700">暂无待触发的提醒</h3>
+                <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto">点击右上角「创建」添加农历生日、公历周期或倒计时提醒</p>
+                <button @click="openAddModal" class="mt-4 px-4 py-2 bg-indigo-50 text-indigo-600 font-bold text-xs rounded-full hover:bg-indigo-100 transition">
+                    ➕ 立即新建提醒
+                </button>
+            </div>
+
+            <!-- 提醒卡片列表 (iOS Inset Card Style) -->
+            <div v-for="r in reminders" :key="r.id" class="ios-card-active bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 transition flex flex-col justify-between relative overflow-hidden">
+                <!-- 顶部标签栏 -->
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span :class="['text-[11px] px-2 py-0.5 rounded-full font-bold', r.calendar_type === 'lunar' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800']">
+                            {{ r.calendar_type === 'lunar' ? '🏮 农历' : '☀️ 公历' }}
+                        </span>
+                        <span class="text-[11px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium border border-purple-100">
+                            {{ getRepeatLabel(r.repeat_type, r.calendar_type) }}
+                        </span>
+                        <span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium truncate max-w-[120px]">
+                            🎨 {{ getTemplateName(r.template_id) }}
                         </span>
                     </div>
-                    <span v-if="r.status === 'completed'" class="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-500">已完成</span>
-                </div>
-                <div class="flex items-center gap-1.5 self-end sm:self-auto">
-                    <button @click="previewReminder(r)" class="px-2.5 py-1 text-xs text-indigo-600 hover:bg-indigo-50 rounded-lg transition font-medium border border-indigo-100 flex items-center gap-1">
-                        <span>👁️</span> 预览
-                    </button>
-                    <button @click="deleteReminder(r.id)" class="px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded-lg transition font-medium border border-rose-100">
-                        删除
-                    </button>
-                </div>
-            </div>
 
-            <h3 v-if="r.title" class="text-base font-bold text-slate-900 mb-1">{{ r.title }}</h3>
-            <p class="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap bg-slate-50/70 p-3 rounded-xl border border-slate-100 mb-3">{{ r.content }}</p>
-
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs text-slate-400 pt-2 border-t border-slate-100">
-                <div class="flex items-center gap-2">
-                    <span>ID: {{ r.id }}</span>
-                    <span>创建: {{ formatTime(r.created_at) }}</span>
-                </div>
-                <div class="font-medium text-indigo-600 flex items-center gap-1">
-                    <span>⏰ 下次触发 (北京时间):</span>
-                    <span class="font-mono text-sm bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">{{ formatTimestamp(r.next_trigger_at) }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 2. 消息模板管理 Tab -->
-    <div v-if="activeTab === 'templates'" class="space-y-4">
-        <div class="flex justify-between items-center mb-1">
-            <p class="text-xs text-slate-500">支持占位符：<code class="bg-slate-200 text-slate-800 px-1 py-0.5 rounded">\{\{title\}\}</code>、<code class="bg-slate-200 text-slate-800 px-1 py-0.5 rounded">\{\{content\}\}</code>、<code class="bg-slate-200 text-slate-800 px-1 py-0.5 rounded">\{\{time\}\}</code>、<code class="bg-slate-200 text-slate-800 px-1 py-0.5 rounded">\{\{type\}\}</code>、<code class="bg-slate-200 text-slate-800 px-1 py-0.5 rounded">\{\{channel_name\}\}</code></p>
-            <button @click="openAddTemplateModal" class="px-3.5 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-medium hover:bg-indigo-700 transition">
-                ➕ 新建模板
-            </button>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            <div v-for="t in templates" :key="t.id" class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm flex flex-col justify-between">
-                <div>
-                    <div class="flex justify-between items-start mb-2">
-                        <div class="flex items-center gap-2">
-                            <h3 class="text-sm sm:text-base font-bold text-slate-900">{{ t.name }}</h3>
-                            <span v-if="t.is_default" class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold border border-indigo-100">默认</span>
-                        </div>
-                        <span class="text-xs font-mono text-slate-400">{{ t.id }}</span>
+                    <!-- 操作菜单 -->
+                    <div class="flex items-center gap-1">
+                        <button @click="previewReminder(r)" class="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-50 transition" title="预览卡片">
+                            👁️
+                        </button>
+                        <button @click="deleteReminder(r.id)" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-50 transition" title="删除">
+                            🗑️
+                        </button>
                     </div>
-                    <pre class="bg-slate-50 border border-slate-100 p-3 rounded-xl text-xs text-slate-700 font-mono whitespace-pre-wrap leading-relaxed h-32 overflow-y-auto">{{ t.content }}</pre>
                 </div>
-                <div class="flex justify-between items-center mt-3 pt-2.5 border-t border-slate-100">
-                    <span class="text-xs text-slate-400">适用: {{ t.type === 'direct' ? '即时直发' : (t.type === 'all' ? '通用' : '定时提醒') }}</span>
-                    <div class="flex items-center gap-1.5">
-                        <button @click="previewTemplate(t)" class="text-xs text-emerald-600 hover:bg-emerald-50 px-2 py-1 rounded transition font-medium flex items-center gap-0.5"><span>👁️</span> 预览</button>
-                        <button @click="editTemplate(t)" class="text-xs text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded transition font-medium">编辑</button>
-                        <button v-if="!t.id.startsWith('tpl_standard') && !t.id.startsWith('tpl_direct')" @click="deleteTemplate(t.id)" class="text-xs text-rose-600 hover:bg-rose-50 px-2 py-1 rounded transition font-medium">删除</button>
+
+                <!-- 标题与内容 -->
+                <h3 v-if="r.title" class="text-sm font-bold text-slate-900 mb-1 leading-snug">{{ r.title }}</h3>
+                <p class="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-slate-50 p-2.5 rounded-xl border border-slate-100 mb-2.5">{{ r.content }}</p>
+
+                <!-- 底部元信息与触发时间 -->
+                <div class="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100">
+                    <div class="flex items-center gap-1 text-slate-400">
+                        <span>📡</span>
+                        <span class="truncate max-w-[110px]">{{ r.channel_ids.map(getChannelName).join(', ') }}</span>
+                    </div>
+                    <div class="flex items-center gap-1 text-indigo-600 font-bold bg-indigo-50/80 px-2 py-0.5 rounded-lg">
+                        <span>⏰</span>
+                        <span class="font-mono">{{ formatTimestamp(r.next_trigger_at) }}</span>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- 3. 通道列表 -->
-    <div v-if="activeTab === 'channels'" class="space-y-3.5">
-        <div class="flex justify-between items-center mb-2">
-            <p class="text-xs text-slate-500">已挂载的接收端通道（支持小马、小牛、外部微信直通/Webhook）</p>
-            <button @click="showAddChannelModal = true" class="px-3.5 py-1.5 bg-slate-800 text-white rounded-xl text-xs font-medium hover:bg-slate-700 transition">
-                ➕ 挂载新通道
-            </button>
-        </div>
-
-        <div v-for="c in channels" :key="c.id" class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm">
-            <div class="flex justify-between items-start mb-2">
-                <div>
-                    <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                        <span>{{ c.name }}</span>
-                        <span class="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{{ c.id }}</span>
-                    </h3>
-                    <p class="text-xs text-slate-400 font-mono mt-0.5 break-all">接口: {{ c.endpoint_url }}</p>
-                </div>
-                <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
-                    {{ c.enabled ? '正常启用' : '已停用' }}
-                </span>
-            </div>
-            <div class="text-xs text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
-                <span>类型: {{ c.type }}</span>
-                <span>创建时间: {{ formatTime(c.created_at) }}</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- 即时直发弹窗 -->
-    <div v-if="showDirectSendModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg p-4 sm:p-6">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-1.5">
-                    <span>⚡</span>
-                    <span>即时直发消息</span>
-                </h2>
-                <button @click="showDirectSendModal = false" class="text-slate-400 hover:text-slate-600 text-lg p-1">✕</button>
-            </div>
-
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">直发内容</label>
-                    <textarea v-model="directSendForm.message" placeholder="输入要立即推送到微信的消息内容..." class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm h-28 resize-none outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">排版模板</label>
-                    <select v-model="directSendForm.template_id" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
-                        <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                        <span>目标通道（可多选）</span>
-                        <span class="text-xs text-emerald-600 font-normal">已选 {{ directSendForm.channel_ids.length }} 个</span>
-                    </label>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                        <label v-for="c in channels" :key="c.id" class="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-emerald-300 transition">
-                            <input type="checkbox" :value="c.id" v-model="directSendForm.channel_ids" class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500">
-                            <span class="text-xs font-medium text-slate-800">{{ c.name }}</span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex items-center justify-between mt-6 pt-3 border-t border-slate-100">
-                <button @click="openDirectPreview" class="px-3.5 py-2 text-xs sm:text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-xl border border-indigo-200 transition flex items-center gap-1">
-                    <span>👁️</span> 预览渲染卡片
+        <!-- 2. 消息模板列表 (Templates Tab) -->
+        <div v-if="activeTab === 'templates'" class="space-y-3">
+            <div class="flex items-center justify-between px-1">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Markdown 消息模板库 ({{ templates.length }})</span>
+                <button @click="openAddTemplateModal" class="text-xs text-indigo-600 font-bold flex items-center gap-1">
+                    ➕ 新建模板
                 </button>
-                <div class="flex gap-2">
-                    <button @click="showDirectSendModal = false" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">取消</button>
-                    <button @click="sendDirectNow" :disabled="sendingDirect" class="px-5 py-2 text-sm bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 active:bg-emerald-800 shadow-sm flex items-center gap-1.5">
-                        <span>⚡</span>
-                        <span>{{ sendingDirect ? '正在发送...' : '立即直发' }}</span>
+            </div>
+
+            <div v-for="t in templates" :key="t.id" class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-sm font-bold text-slate-900">{{ t.name }}</h3>
+                        <span v-if="t.is_default" class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold border border-indigo-100">默认</span>
+                    </div>
+                    <span class="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{{ t.type }}</span>
+                </div>
+
+                <pre class="bg-slate-50 border border-slate-100 p-2.5 rounded-xl text-[11px] text-slate-700 font-mono whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto">{{ t.content }}</pre>
+
+                <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <button @click="previewTemplate(t)" class="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                        <span>👁️</span> 效果预览
                     </button>
+                    <div class="flex items-center gap-2">
+                        <button @click="editTemplate(t)" class="text-xs text-indigo-600 font-semibold">编辑</button>
+                        <button v-if="!t.id.startsWith('tpl_standard') && !t.id.startsWith('tpl_direct')" @click="deleteTemplate(t.id)" class="text-xs text-rose-500 font-semibold">删除</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- 主表单：新建/编辑提醒弹窗 -->
-    <div v-if="showAddModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-40 p-0 sm:p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <span>⏰</span>
-                    <span>新建智能提醒任务</span>
-                </h2>
-                <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 text-lg p-1">✕</button>
+        <!-- 3. 通知通道列表 (Channels Tab) -->
+        <div v-if="activeTab === 'channels'" class="space-y-3">
+            <div class="flex items-center justify-between px-1">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">已连接终端通道 ({{ channels.length }})</span>
+                <button @click="showAddChannelModal = true" class="text-xs text-indigo-600 font-bold flex items-center gap-1">
+                    ➕ 挂载新通道
+                </button>
             </div>
 
-            <div class="space-y-4">
-                <!-- 基本信息 -->
+            <div v-for="c in channels" :key="c.id" class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 space-y-2">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs font-bold">
+                            📡
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-900 leading-none">{{ c.name }}</h3>
+                            <span class="text-[10px] font-mono text-slate-400">{{ c.id }}</span>
+                        </div>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold border border-emerald-200">
+                        {{ c.enabled ? '正常连通' : '已停用' }}
+                    </span>
+                </div>
+
+                <div class="text-[11px] text-slate-500 font-mono bg-slate-50 p-2 rounded-xl border border-slate-100 break-all">
+                    URL: {{ c.endpoint_url }}
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 底部原生 iOS TabBar (Fixed Bottom Navigation) -->
+    <nav class="fixed bottom-0 left-0 right-0 z-30 glass-tabbar border-t border-slate-200/60 safe-bottom-tab max-w-lg mx-auto">
+        <div class="grid grid-cols-3 py-1 text-center">
+            <!-- 提醒 Tab -->
+            <button @click="activeTab = 'reminders'" :class="['ios-btn-active py-1 flex flex-col items-center justify-center transition', activeTab === 'reminders' ? 'text-indigo-600 font-bold' : 'text-slate-400']">
+                <span class="text-lg leading-tight mb-0.5">📅</span>
+                <span class="text-[10px]">定时提醒</span>
+            </button>
+            <!-- 模板 Tab -->
+            <button @click="activeTab = 'templates'" :class="['ios-btn-active py-1 flex flex-col items-center justify-center transition', activeTab === 'templates' ? 'text-indigo-600 font-bold' : 'text-slate-400']">
+                <span class="text-lg leading-tight mb-0.5">🎨</span>
+                <span class="text-[10px]">消息模板</span>
+            </button>
+            <!-- 通道 Tab -->
+            <button @click="activeTab = 'channels'" :class="['ios-btn-active py-1 flex flex-col items-center justify-center transition', activeTab === 'channels' ? 'text-indigo-600 font-bold' : 'text-slate-400']">
+                <span class="text-lg leading-tight mb-0.5">📡</span>
+                <span class="text-[10px]">通知通道</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- 弹窗 1：主表单 - 新建提醒抽屉 (Bottom Sheet Modal) -->
+    <div v-if="showAddModal" class="fixed inset-0 bg-black/60 z-40 flex items-end justify-center backdrop-blur-xs transition-opacity animate-fade-in">
+        <div class="bg-white w-full rounded-t-3xl max-h-[92vh] flex flex-col p-5 shadow-2xl safe-bottom-tab overflow-hidden animate-slide-up">
+            <!-- 抽屉顶部把手 -->
+            <div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-3"></div>
+
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                <h2 class="text-base font-bold text-slate-900 flex items-center gap-1.5">
+                    <span>⏰</span>
+                    <span>新建智能提醒</span>
+                </h2>
+                <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 p-1 text-base">✕</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto space-y-3.5 pr-0.5">
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">提醒标题（可选）</label>
-                    <input v-model="form.title" type="text" placeholder="例如：爸妈生日 / 信用卡还款 / 初一吃素" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold text-slate-700 mb-1">标题（可选）</label>
+                    <input v-model="form.title" type="text" placeholder="例如：爸妈生日 / 信用卡还款 / 初一吃素" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white">
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">提醒正文内容（必填）</label>
-                    <textarea v-model="form.content" placeholder="输入要推送给微信的详细提醒内容..." class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm h-20 resize-none outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                    <textarea v-model="form.content" placeholder="输入要推送到微信的提醒正文..." class="w-full border border-slate-300 rounded-xl p-3 text-sm h-20 resize-none outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white"></textarea>
                 </div>
 
-                <!-- 调度规则配置卡片 (点击弹出独立调度配置子弹窗) -->
+                <!-- 调度配置入口卡片 -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">时间与历法调度规则</label>
-                    <div @click="showScheduleModal = true" class="flex items-center justify-between p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-2xl cursor-pointer hover:bg-indigo-100/60 transition group">
+                    <div @click="showScheduleModal = true" class="flex items-center justify-between p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-2xl cursor-pointer hover:bg-indigo-100/60 transition active:scale-[0.98]">
                         <div class="flex items-center gap-2.5">
                             <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-lg font-bold shadow-sm">
                                 {{ form.calendar_type === 'lunar' ? '🏮' : '☀️' }}
                             </div>
                             <div>
-                                <div class="text-sm font-bold text-indigo-950">{{ scheduleSummary.title }}</div>
-                                <div class="text-xs text-indigo-700/80 mt-0.5">{{ scheduleSummary.desc }}</div>
+                                <div class="text-xs sm:text-sm font-bold text-indigo-950">{{ scheduleSummary.title }}</div>
+                                <div class="text-[11px] text-indigo-700/80 mt-0.5">{{ scheduleSummary.desc }}</div>
                             </div>
                         </div>
-                        <span class="text-xs font-bold text-indigo-600 bg-white border border-indigo-200 px-3 py-1.5 rounded-xl shadow-xs group-hover:bg-indigo-600 group-hover:text-white transition">
-                            ⚙️ 更改调度
+                        <span class="text-xs font-bold text-indigo-600 bg-white border border-indigo-200 px-3 py-1.5 rounded-xl shadow-xs">
+                            更改 ❯
                         </span>
                     </div>
                 </div>
 
-                <!-- 模板选择与通道勾选 -->
+                <!-- 模板选择 -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">排版模板</label>
-                        <select v-model="form.template_id" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
+                        <label class="block text-xs font-bold text-slate-700 mb-1">排版卡片模板</label>
+                        <select v-model="form.template_id" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm outline-none bg-white">
                             <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">已选通道 ({{ form.channel_ids.length }} 个)</label>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">已选目标通道 ({{ form.channel_ids.length }}个)</label>
                         <div class="text-xs text-indigo-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 truncate">
                             {{ form.channel_ids.map(getChannelName).join(', ') || '未选择通道' }}
                         </div>
                     </div>
                 </div>
 
-                <!-- 通道多选勾选区 -->
+                <!-- 通道勾选 -->
                 <div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                        <label v-for="c in channels" :key="c.id" class="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-indigo-300 transition">
-                            <input type="checkbox" :value="c.id" v-model="form.channel_ids" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
-                            <span class="text-xs font-medium text-slate-800">{{ c.name }}</span>
-                            <span class="text-[10px] text-slate-400 font-mono ml-auto">({{ c.id }})</span>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">广播通道勾选</label>
+                    <div class="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                        <label v-for="c in channels" :key="c.id" class="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer text-xs">
+                            <input type="checkbox" :value="c.id" v-model="form.channel_ids" class="w-4 h-4 text-indigo-600 rounded border-slate-300">
+                            <span class="font-medium text-slate-800 truncate">{{ c.name }}</span>
                         </label>
                     </div>
                 </div>
             </div>
 
-            <div class="flex items-center justify-between mt-6 pt-3 border-t border-slate-100">
-                <button @click="openFormPreview" class="px-3.5 py-2 text-xs sm:text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-xl border border-indigo-200 transition flex items-center gap-1">
-                    <span>👁️</span> 预览渲染卡片
+            <!-- 底部操作按钮 -->
+            <div class="flex items-center justify-between pt-3 mt-2 border-t border-slate-100">
+                <button @click="openFormPreview" class="ios-btn-active px-3 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 rounded-xl flex items-center gap-1">
+                    <span>👁️</span> 预览卡片
                 </button>
                 <div class="flex gap-2">
-                    <button @click="showAddModal = false" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">取消</button>
-                    <button @click="saveReminder" :disabled="submitting" class="px-5 py-2 text-sm bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 active:bg-indigo-800 shadow-sm flex items-center gap-1.5">
-                        <span>✨</span>
-                        <span>{{ submitting ? '保存中...' : '确认创建任务' }}</span>
+                    <button @click="showAddModal = false" class="px-4 py-2 text-xs text-slate-600 rounded-xl font-medium">取消</button>
+                    <button @click="saveReminder" :disabled="submitting" class="ios-btn-active px-5 py-2 text-xs bg-indigo-600 text-white font-bold rounded-xl shadow-md">
+                        {{ submitting ? '保存中...' : '确认创建' }}
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 子弹窗：时间与历法调度配置独立弹窗 (Schedule Configuration Modal) -->
-    <div v-if="showScheduleModal" class="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <span>🗓️</span>
-                    <span>配置时间与历法调度规则</span>
-                </h2>
-                <button @click="showScheduleModal = false" class="text-slate-400 hover:text-slate-600 text-lg p-1">✕</button>
-            </div>
+    <!-- 弹窗 2：调度配置独立子弹窗 (Schedule Sub-Modal) -->
+    <div v-if="showScheduleModal" class="fixed inset-0 bg-black/70 z-50 flex items-end justify-center backdrop-blur-xs animate-fade-in">
+        <div class="bg-white w-full rounded-t-3xl max-h-[90vh] flex flex-col p-5 shadow-2xl safe-bottom-tab overflow-hidden animate-slide-up">
+            <div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-3"></div>
 
-            <!-- 第一层：历法平级切换 (公历 vs 农历) -->
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-slate-700 mb-2">1. 选择历法体系（公历与农历完全并列）</label>
-                <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
-                    <button @click="scheduleDraft.calendar_type = 'solar'" :class="['py-2 rounded-lg text-sm font-bold transition flex items-center justify-center gap-1.5', scheduleDraft.calendar_type === 'solar' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900']">
-                        <span>☀️</span>
-                        <span>公历体系 (阳历)</span>
-                    </button>
-                    <button @click="scheduleDraft.calendar_type = 'lunar'" :class="['py-2 rounded-lg text-sm font-bold transition flex items-center justify-center gap-1.5', scheduleDraft.calendar_type === 'lunar' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600 hover:text-slate-900']">
-                        <span>🏮</span>
-                        <span>农历体系 (阴历)</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- 第二层：周期规则选择 -->
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-slate-700 mb-2">2. 选择重复周期</label>
-                
-                <!-- 公历周期选项 -->
-                <div v-if="scheduleDraft.calendar_type === 'solar'" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <div @click="scheduleDraft.repeat_type = 'daily'" :class="['p-2.5 rounded-xl border cursor-pointer text-center transition', scheduleDraft.repeat_type === 'daily' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white hover:border-slate-300']">
-                        <div class="text-sm">🌅 公历每日</div>
-                    </div>
-                    <div @click="scheduleDraft.repeat_type = 'weekly'" :class="['p-2.5 rounded-xl border cursor-pointer text-center transition', scheduleDraft.repeat_type === 'weekly' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white hover:border-slate-300']">
-                        <div class="text-sm">📅 公历每周几</div>
-                    </div>
-                    <div @click="scheduleDraft.repeat_type = 'monthly'" :class="['p-2.5 rounded-xl border cursor-pointer text-center transition', scheduleDraft.repeat_type === 'monthly' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white hover:border-slate-300']">
-                        <div class="text-sm">🗓️ 公历每月几号</div>
-                    </div>
-                    <div @click="scheduleDraft.repeat_type = 'yearly'" :class="['p-2.5 rounded-xl border cursor-pointer text-center transition', scheduleDraft.repeat_type === 'yearly' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white hover:border-slate-300']">
-                        <div class="text-sm">🎂 公历每年</div>
-                    </div>
-                    <div @click="scheduleDraft.repeat_type = 'once'" :class="['p-2.5 rounded-xl border cursor-pointer text-center transition', scheduleDraft.repeat_type === 'once' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white hover:border-slate-300']">
-                        <div class="text-sm">⏱️ 公历单次延时</div>
-                    </div>
-                </div>
-
-                <!-- 农历周期选项 (并列支持 每年、每月、每日) -->
-                <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <div @click="scheduleDraft.repeat_type = 'yearly'" :class="['p-2.5 rounded-xl border cursor-pointer text-center transition', scheduleDraft.repeat_type === 'yearly' ? 'border-amber-600 bg-amber-50 font-bold text-amber-900' : 'border-slate-200 bg-white hover:border-slate-300']">
-                        <div class="text-sm">🏮 农历每年几月几号</div>
-                        <div class="text-[10px] text-amber-600 font-normal">如九月十八生日/中秋</div>
-                    </div>
-                    <div @click="scheduleDraft.repeat_type = 'monthly'" :class="['p-2.5 rounded-xl border cursor-pointer text-center transition', scheduleDraft.repeat_type === 'monthly' ? 'border-amber-600 bg-amber-50 font-bold text-amber-900' : 'border-slate-200 bg-white hover:border-slate-300']">
-                        <div class="text-sm">🌙 农历每月几号</div>
-                        <div class="text-[10px] text-amber-600 font-normal">如每月初一/十五吃素</div>
-                    </div>
-                    <div @click="scheduleDraft.repeat_type = 'daily'" :class="['p-2.5 rounded-xl border cursor-pointer text-center transition', scheduleDraft.repeat_type === 'daily' ? 'border-amber-600 bg-amber-50 font-bold text-amber-900' : 'border-slate-200 bg-white hover:border-slate-300']">
-                        <div class="text-sm">🌅 农历每日</div>
-                        <div class="text-[10px] text-amber-600 font-normal">每日固定时间</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 第三层：参数详情配置 -->
-            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 mb-4">
-                <!-- 1. 公历参数 -->
-                <template v-if="scheduleDraft.calendar_type === 'solar'">
-                    <div v-if="scheduleDraft.repeat_type === 'daily'" class="flex items-center justify-between gap-3">
-                        <span class="text-xs font-bold text-slate-700">每天提醒时间点</span>
-                        <input v-model="scheduleDraft.time" type="time" class="border border-slate-300 rounded-xl px-3 py-1.5 text-sm bg-white font-mono">
-                    </div>
-
-                    <div v-if="scheduleDraft.repeat_type === 'weekly'" class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">每周几</label>
-                            <select v-model.number="scheduleDraft.weekday" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm bg-white">
-                                <option :value="1">周一</option>
-                                <option :value="2">周二</option>
-                                <option :value="3">周三</option>
-                                <option :value="4">周四</option>
-                                <option :value="5">周五</option>
-                                <option :value="6">周六</option>
-                                <option :value="0">周日</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">提醒时间</label>
-                            <input v-model="scheduleDraft.time" type="time" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm bg-white font-mono">
-                        </div>
-                    </div>
-
-                    <div v-if="scheduleDraft.repeat_type === 'monthly'" class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">公历每月几号 (1-31)</label>
-                            <input v-model.number="scheduleDraft.monthly_day" type="number" min="1" max="31" placeholder="如 10" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm bg-white">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">提醒时间</label>
-                            <input v-model="scheduleDraft.time" type="time" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm bg-white font-mono">
-                        </div>
-                    </div>
-
-                    <div v-if="scheduleDraft.repeat_type === 'yearly'" class="grid grid-cols-3 gap-2">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">公历月份</label>
-                            <input v-model.number="scheduleDraft.yearly_month" type="number" min="1" max="12" placeholder="如 10" class="w-full border border-slate-300 rounded-xl px-2.5 py-1.5 text-sm bg-white">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">公历日期</label>
-                            <input v-model.number="scheduleDraft.yearly_day" type="number" min="1" max="31" placeholder="如 27" class="w-full border border-slate-300 rounded-xl px-2.5 py-1.5 text-sm bg-white">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">时间</label>
-                            <input v-model="scheduleDraft.time" type="time" class="w-full border border-slate-300 rounded-xl px-2.5 py-1.5 text-sm bg-white font-mono">
-                        </div>
-                    </div>
-
-                    <div v-if="scheduleDraft.repeat_type === 'once'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">延迟时间 (分钟)</label>
-                            <input v-model.number="scheduleDraft.delay_minutes" type="number" placeholder="如 15 (15分钟后触发)" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm bg-white">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">或指定具体时间</label>
-                            <input v-model="scheduleDraft.run_at" type="datetime-local" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm bg-white font-mono">
-                        </div>
-                    </div>
-                </template>
-
-                <!-- 2. 农历参数 -->
-                <template v-else>
-                    <div v-if="scheduleDraft.repeat_type === 'yearly'" class="grid grid-cols-3 gap-2">
-                        <div>
-                            <label class="block text-xs font-bold text-amber-900 mb-1">农历月份</label>
-                            <input v-model.number="scheduleDraft.lunar_month" type="number" min="1" max="12" placeholder="如 9" class="w-full border border-amber-300 rounded-xl px-2.5 py-1.5 text-sm bg-white">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-amber-900 mb-1">农历日期</label>
-                            <input v-model.number="scheduleDraft.lunar_day" type="number" min="1" max="30" placeholder="如 18" class="w-full border border-amber-300 rounded-xl px-2.5 py-1.5 text-sm bg-white">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-amber-900 mb-1">时间</label>
-                            <input v-model="scheduleDraft.time" type="time" class="w-full border border-amber-300 rounded-xl px-2.5 py-1.5 text-sm bg-white font-mono">
-                        </div>
-                    </div>
-
-                    <div v-if="scheduleDraft.repeat_type === 'monthly'" class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-bold text-amber-900 mb-1">农历每月几号 (1-30)</label>
-                            <input v-model.number="scheduleDraft.lunar_day" type="number" min="1" max="30" placeholder="如 15 (每月十五)" class="w-full border border-amber-300 rounded-xl px-3 py-1.5 text-sm bg-white">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-amber-900 mb-1">提醒时间</label>
-                            <input v-model="scheduleDraft.time" type="time" class="w-full border border-amber-300 rounded-xl px-3 py-1.5 text-sm bg-white font-mono">
-                        </div>
-                    </div>
-
-                    <div v-if="scheduleDraft.repeat_type === 'daily'" class="flex items-center justify-between gap-3">
-                        <span class="text-xs font-bold text-amber-900">农历每天提醒时间点</span>
-                        <input v-model="scheduleDraft.time" type="time" class="border border-amber-300 rounded-xl px-3 py-1.5 text-sm bg-white font-mono">
-                    </div>
-                </template>
-            </div>
-
-            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button @click="showScheduleModal = false" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">取消</button>
-                <button @click="applyScheduleDraft" class="px-5 py-2 text-sm bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 shadow-sm">保存调度规则</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 实时微信 Markdown 卡片预览弹窗 (Live Preview Modal) -->
-    <div v-if="showPreviewModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 flex flex-col max-h-[85vh]">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                <h2 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-1.5">
-                    <span>📱</span>
-                    <span>微信推送渲染效果预览</span>
+                <h2 class="text-base font-bold text-slate-900 flex items-center gap-1.5">
+                    <span>🗓️</span>
+                    <span>配置时间与历法调度</span>
                 </h2>
-                <button @click="showPreviewModal = false" class="text-slate-400 hover:text-slate-600 text-lg p-1">✕</button>
+                <button @click="showScheduleModal = false" class="text-slate-400 p-1 text-base">✕</button>
             </div>
 
-            <div class="flex-1 overflow-y-auto my-2 p-3 bg-slate-100/70 rounded-xl border border-slate-200/80">
+            <div class="flex-1 overflow-y-auto space-y-4">
+                <!-- 第一步：历法完全并列选择 (Segmented Control) -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">1. 选择历法体系（公历与农历完全并列）</label>
+                    <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+                        <button @click="scheduleDraft.calendar_type = 'solar'" :class="['py-2.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5', scheduleDraft.calendar_type === 'solar' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600']">
+                            <span>☀️</span>
+                            <span>公历体系 (阳历)</span>
+                        </button>
+                        <button @click="scheduleDraft.calendar_type = 'lunar'" :class="['py-2.5 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5', scheduleDraft.calendar_type === 'lunar' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600']">
+                            <span>🏮</span>
+                            <span>农历体系 (阴历)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 第二步：对应历法下的周期规则 -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">2. 选择重复周期</label>
+                    
+                    <!-- 公历周期 -->
+                    <div v-if="scheduleDraft.calendar_type === 'solar'" class="grid grid-cols-2 gap-2">
+                        <div @click="scheduleDraft.repeat_type = 'daily'" :class="['p-2.5 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'daily' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white']">
+                            <div class="text-xs sm:text-sm">🌅 公历每日</div>
+                        </div>
+                        <div @click="scheduleDraft.repeat_type = 'weekly'" :class="['p-2.5 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'weekly' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white']">
+                            <div class="text-xs sm:text-sm">📅 公历每周几</div>
+                        </div>
+                        <div @click="scheduleDraft.repeat_type = 'monthly'" :class="['p-2.5 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'monthly' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white']">
+                            <div class="text-xs sm:text-sm">🗓️ 公历每月几号</div>
+                        </div>
+                        <div @click="scheduleDraft.repeat_type = 'yearly'" :class="['p-2.5 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'yearly' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white']">
+                            <div class="text-xs sm:text-sm">🎂 公历每年</div>
+                        </div>
+                        <div @click="scheduleDraft.repeat_type = 'once'" :class="['col-span-2 p-2.5 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'once' ? 'border-indigo-600 bg-indigo-50 font-bold text-indigo-900' : 'border-slate-200 bg-white']">
+                            <div class="text-xs sm:text-sm">⏱️ 公历单次倒计时 / 指定时间</div>
+                        </div>
+                    </div>
+
+                    <!-- 农历周期 (去掉了农历每天，并列支持农历每年与农历每月) -->
+                    <div v-else class="grid grid-cols-2 gap-2">
+                        <div @click="scheduleDraft.repeat_type = 'yearly'" :class="['p-3 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'yearly' ? 'border-amber-600 bg-amber-50 font-bold text-amber-900' : 'border-slate-200 bg-white']">
+                            <div class="text-xs sm:text-sm">🏮 农历每年几月几号</div>
+                            <div class="text-[10px] text-amber-600 font-normal mt-0.5">如生日/中秋/春节</div>
+                        </div>
+                        <div @click="scheduleDraft.repeat_type = 'monthly'" :class="['p-3 rounded-xl border text-center cursor-pointer transition', scheduleDraft.repeat_type === 'monthly' ? 'border-amber-600 bg-amber-50 font-bold text-amber-900' : 'border-slate-200 bg-white']">
+                            <div class="text-xs sm:text-sm">🌙 农历每月几号</div>
+                            <div class="text-[10px] text-amber-600 font-normal mt-0.5">如初一/十五吃素</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 第三步：参数详情输入 -->
+                <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                    <!-- 1. 公历参数 -->
+                    <template v-if="scheduleDraft.calendar_type === 'solar'">
+                        <div v-if="scheduleDraft.repeat_type === 'daily'" class="flex items-center justify-between gap-2">
+                            <span class="text-xs font-bold text-slate-700">每天提醒时间点</span>
+                            <input v-model="scheduleDraft.time" type="time" class="border border-slate-300 rounded-xl px-3 py-1.5 text-sm bg-white font-mono">
+                        </div>
+
+                        <div v-if="scheduleDraft.repeat_type === 'weekly'" class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">选择周几</label>
+                                <select v-model.number="scheduleDraft.weekday" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white">
+                                    <option :value="1">周一</option>
+                                    <option :value="2">周二</option>
+                                    <option :value="3">周三</option>
+                                    <option :value="4">周四</option>
+                                    <option :value="5">周五</option>
+                                    <option :value="6">周六</option>
+                                    <option :value="0">周日</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">时间</label>
+                                <input v-model="scheduleDraft.time" type="time" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white font-mono">
+                            </div>
+                        </div>
+
+                        <div v-if="scheduleDraft.repeat_type === 'monthly'" class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">公历几号 (1-31)</label>
+                                <input v-model.number="scheduleDraft.monthly_day" type="number" min="1" max="31" placeholder="如 10" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">时间</label>
+                                <input v-model="scheduleDraft.time" type="time" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white font-mono">
+                            </div>
+                        </div>
+
+                        <div v-if="scheduleDraft.repeat_type === 'yearly'" class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">月份</label>
+                                <input v-model.number="scheduleDraft.yearly_month" type="number" min="1" max="12" placeholder="如 10" class="w-full border border-slate-300 rounded-xl px-2 py-1.5 text-xs bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">日期</label>
+                                <input v-model.number="scheduleDraft.yearly_day" type="number" min="1" max="31" placeholder="如 27" class="w-full border border-slate-300 rounded-xl px-2 py-1.5 text-xs bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">时间</label>
+                                <input v-model="scheduleDraft.time" type="time" class="w-full border border-slate-300 rounded-xl px-2 py-1.5 text-xs bg-white font-mono">
+                            </div>
+                        </div>
+
+                        <div v-if="scheduleDraft.repeat_type === 'once'" class="space-y-2">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">相对延迟 (分钟)</label>
+                                <input v-model.number="scheduleDraft.delay_minutes" type="number" placeholder="如 15 (15分钟后触发)" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">或指定具体时间</label>
+                                <input v-model="scheduleDraft.run_at" type="datetime-local" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white font-mono">
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- 2. 农历参数 -->
+                    <template v-else>
+                        <div v-if="scheduleDraft.repeat_type === 'yearly'" class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-amber-900 mb-1">农历月份</label>
+                                <input v-model.number="scheduleDraft.lunar_month" type="number" min="1" max="12" placeholder="如 9" class="w-full border border-amber-300 rounded-xl px-2 py-1.5 text-xs bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-amber-900 mb-1">农历日期</label>
+                                <input v-model.number="scheduleDraft.lunar_day" type="number" min="1" max="30" placeholder="如 18" class="w-full border border-amber-300 rounded-xl px-2 py-1.5 text-xs bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-amber-900 mb-1">时间</label>
+                                <input v-model="scheduleDraft.time" type="time" class="w-full border border-amber-300 rounded-xl px-2 py-1.5 text-xs bg-white font-mono">
+                            </div>
+                        </div>
+
+                        <div v-if="scheduleDraft.repeat_type === 'monthly'" class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-amber-900 mb-1">农历几号 (1-30)</label>
+                                <input v-model.number="scheduleDraft.lunar_day" type="number" min="1" max="30" placeholder="如 15 (每月十五)" class="w-full border border-amber-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-amber-900 mb-1">时间</label>
+                                <input v-model="scheduleDraft.time" type="time" class="w-full border border-amber-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm bg-white font-mono">
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100 mt-2">
+                <button @click="showScheduleModal = false" class="px-4 py-2 text-xs text-slate-600 rounded-xl">取消</button>
+                <button @click="applyScheduleDraft" class="ios-btn-active px-5 py-2 text-xs bg-indigo-600 text-white font-bold rounded-xl shadow-md">保存调度</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 弹窗 3：即时直发抽屉 (Direct Send Sheet) -->
+    <div v-if="showDirectSendModal" class="fixed inset-0 bg-black/60 z-40 flex items-end justify-center backdrop-blur-xs animate-fade-in">
+        <div class="bg-white w-full rounded-t-3xl max-h-[85vh] flex flex-col p-5 shadow-2xl safe-bottom-tab overflow-hidden animate-slide-up">
+            <div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-3"></div>
+
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                <h2 class="text-base font-bold text-slate-900 flex items-center gap-1.5">
+                    <span>⚡</span>
+                    <span>即时直发消息</span>
+                </h2>
+                <button @click="showDirectSendModal = false" class="text-slate-400 p-1 text-base">✕</button>
+            </div>
+
+            <div class="space-y-3.5 overflow-y-auto pr-0.5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">直发正文内容</label>
+                    <textarea v-model="directSendForm.message" placeholder="输入要立即推送到微信的消息内容..." class="w-full border border-slate-300 rounded-xl p-3 text-sm h-28 resize-none outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 focus:bg-white"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">排版卡片模板</label>
+                    <select v-model="directSendForm.template_id" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm outline-none bg-white">
+                        <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">目标通道勾选</label>
+                    <div class="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                        <label v-for="c in channels" :key="c.id" class="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer text-xs">
+                            <input type="checkbox" :value="c.id" v-model="directSendForm.channel_ids" class="w-4 h-4 text-emerald-600 rounded">
+                            <span class="font-medium text-slate-800 truncate">{{ c.name }}</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-3 mt-3 border-t border-slate-100">
+                <button @click="openDirectPreview" class="ios-btn-active px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 rounded-xl flex items-center gap-1">
+                    <span>👁️</span> 预览卡片
+                </button>
+                <div class="flex gap-2">
+                    <button @click="showDirectSendModal = false" class="px-4 py-2 text-xs text-slate-600 rounded-xl">取消</button>
+                    <button @click="sendDirectNow" :disabled="sendingDirect" class="ios-btn-active px-5 py-2 text-xs bg-emerald-600 text-white font-bold rounded-xl shadow-md flex items-center gap-1">
+                        <span>⚡</span>
+                        <span>{{ sendingDirect ? '发送中...' : '立即直发' }}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 弹窗 4：微信风格卡片实时渲染预览 (WeChat Live Card Preview) -->
+    <div v-if="showPreviewModal" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-fade-in">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-5 flex flex-col max-h-[85vh]">
+            <div class="flex items-center justify-between pb-2.5 border-b border-slate-100 mb-3">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <h2 class="text-sm font-bold text-slate-900">微信卡片渲染效果预览</h2>
+                </div>
+                <button @click="showPreviewModal = false" class="text-slate-400 p-1 text-sm">✕</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto my-1 p-3 bg-slate-100 rounded-2xl border border-slate-200/80">
                 <div class="wechat-preview-card" v-html="previewHtml"></div>
             </div>
 
-            <div class="flex justify-between items-center pt-3 border-t border-slate-100">
-                <span class="text-xs text-slate-400">所见即所得 · 微信原生 Markdown 排版</span>
-                <button @click="showPreviewModal = false" class="px-4 py-2 text-xs sm:text-sm bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800">
-                    关闭预览
+            <div class="flex items-center justify-between pt-3 mt-2 border-t border-slate-100">
+                <span class="text-[10px] text-slate-400">所见即所得 · 原生微信排版</span>
+                <button @click="showPreviewModal = false" class="ios-btn-active px-4 py-1.5 text-xs bg-slate-900 text-white font-bold rounded-full">
+                    关闭
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- 新建/编辑模板弹窗 -->
-    <div v-if="showTemplateModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                <h2 class="text-lg font-bold text-slate-900">{{ templateForm.id ? '编辑消息模板' : '新建消息模板' }}</h2>
-                <button @click="showTemplateModal = false" class="text-slate-400 hover:text-slate-600 text-lg p-1">✕</button>
+    <!-- 弹窗 5：模板编辑抽屉 -->
+    <div v-if="showTemplateModal" class="fixed inset-0 bg-black/60 z-40 flex items-end justify-center backdrop-blur-xs animate-fade-in">
+        <div class="bg-white w-full rounded-t-3xl max-h-[90vh] flex flex-col p-5 shadow-2xl safe-bottom-tab overflow-hidden animate-slide-up">
+            <div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-3"></div>
+
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                <h2 class="text-base font-bold text-slate-900">{{ templateForm.id ? '编辑消息模板' : '新建消息模板' }}</h2>
+                <button @click="showTemplateModal = false" class="text-slate-400 p-1 text-base">✕</button>
             </div>
 
-            <div class="space-y-4">
+            <div class="space-y-3 overflow-y-auto pr-0.5">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">模板名称</label>
-                    <input v-model="templateForm.name" type="text" placeholder="例如：自定义重点通知卡片" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input v-model="templateForm.name" type="text" placeholder="例如：重点事项提醒卡片" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-xs sm:text-sm bg-slate-50 focus:bg-white">
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">模板类型</label>
-                    <select v-model="templateForm.type" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white">
+                    <select v-model="templateForm.type" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm bg-white">
                         <option value="reminder">定时提醒</option>
                         <option value="direct">即时直发</option>
                         <option value="all">通用</option>
@@ -547,57 +609,59 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1 flex justify-between">
-                        <span>Markdown 模板内容</span>
-                        <span class="text-[11px] text-slate-400">可用 \{\{title\}\} \{\{content\}\} \{\{time\}\} \{\{type\}\}</span>
-                    </label>
-                    <textarea v-model="templateForm.content" placeholder="输入 Markdown 内容模板..." class="w-full border border-slate-300 rounded-xl p-3 text-xs sm:text-sm font-mono h-44 resize-none outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Markdown 格式模板</label>
+                    <textarea v-model="templateForm.content" placeholder="输入 Markdown 内容模板..." class="w-full border border-slate-300 rounded-xl p-3 text-xs font-mono h-40 resize-none bg-slate-50 focus:bg-white"></textarea>
                 </div>
             </div>
 
-            <div class="flex items-center justify-between mt-5 pt-3 border-t border-slate-100">
-                <button @click="previewTemplateDraft" class="px-3.5 py-2 text-xs sm:text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-xl border border-indigo-200 transition flex items-center gap-1">
-                    <span>👁️</span> 预览模板效果
+            <div class="flex items-center justify-between pt-3 mt-3 border-t border-slate-100">
+                <button @click="previewTemplateDraft" class="ios-btn-active px-3 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 rounded-xl flex items-center gap-1">
+                    <span>👁️</span> 预览模板
                 </button>
                 <div class="flex gap-2">
-                    <button @click="showTemplateModal = false" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">取消</button>
-                    <button @click="saveTemplate" class="px-5 py-2 text-sm bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 shadow-sm">保存模板</button>
+                    <button @click="showTemplateModal = false" class="px-4 py-2 text-xs text-slate-600 rounded-xl">取消</button>
+                    <button @click="saveTemplate" class="ios-btn-active px-5 py-2 text-xs bg-indigo-600 text-white font-bold rounded-xl shadow-md">保存模板</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 挂载通道弹窗 -->
-    <div v-if="showAddChannelModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg p-4 sm:p-6">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                <h2 class="text-lg font-bold text-slate-900">挂载新通知通道</h2>
-                <button @click="showAddChannelModal = false" class="text-slate-400 hover:text-slate-600 text-lg p-1">✕</button>
+    <!-- 弹窗 6：挂载通道抽屉 -->
+    <div v-if="showAddChannelModal" class="fixed inset-0 bg-black/60 z-40 flex items-end justify-center backdrop-blur-xs animate-fade-in">
+        <div class="bg-white w-full rounded-t-3xl max-h-[85vh] flex flex-col p-5 shadow-2xl safe-bottom-tab overflow-hidden animate-slide-up">
+            <div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-3"></div>
+
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                <h2 class="text-base font-bold text-slate-900">挂载新通知通道</h2>
+                <button @click="showAddChannelModal = false" class="text-slate-400 p-1 text-base">✕</button>
             </div>
-            <div class="space-y-3">
+
+            <div class="space-y-3 overflow-y-auto pr-0.5">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">通道 ID (唯一)</label>
-                    <input v-model="channelForm.id" type="text" placeholder="例如 xiaoniu_wx" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                    <input v-model="channelForm.id" type="text" placeholder="例如 xiaoniu_wx" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-xs sm:text-sm bg-slate-50 focus:bg-white">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">通道名称</label>
-                    <input v-model="channelForm.name" type="text" placeholder="例如 小牛VPS微信直通" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                    <input v-model="channelForm.name" type="text" placeholder="例如 小牛VPS微信直通" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-xs sm:text-sm bg-slate-50 focus:bg-white">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">微信直通 / Webhook 接口 URL</label>
-                    <input v-model="channelForm.endpoint_url" type="text" placeholder="例如 http://198.200.49.120:8765/send" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                    <label class="block text-xs font-bold text-slate-700 mb-1">接口 URL</label>
+                    <input v-model="channelForm.endpoint_url" type="text" placeholder="例如 http://198.200.49.120:8765/send" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-xs sm:text-sm bg-slate-50 focus:bg-white">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Token 密钥 (可选)</label>
-                    <input v-model="channelForm.auth_key" type="text" placeholder="通信鉴权密钥" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                    <input v-model="channelForm.auth_key" type="text" placeholder="通信鉴权密钥" class="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-xs sm:text-sm bg-slate-50 focus:bg-white">
                 </div>
             </div>
-            <div class="flex justify-end gap-2 mt-5 pt-3 border-t border-slate-100">
-                <button @click="showAddChannelModal = false" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">取消</button>
-                <button @click="saveChannel" class="px-5 py-2 text-sm bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800">保存通道</button>
+
+            <div class="flex justify-end gap-2 pt-3 mt-3 border-t border-slate-100">
+                <button @click="showAddChannelModal = false" class="px-4 py-2 text-xs text-slate-600 rounded-xl">取消</button>
+                <button @click="saveChannel" class="ios-btn-active px-5 py-2 text-xs bg-slate-900 text-white font-bold rounded-xl shadow-md">保存通道</button>
             </div>
         </div>
     </div>
+
 </div>
 
 <script>
@@ -678,11 +742,9 @@ createApp({
             const f = form.value;
             if (f.calendar_type === 'lunar') {
                 if (f.repeat_type === 'yearly') {
-                    return { title: `🏮 农历每年 ${f.lunar_month}月${f.lunar_day}日 ${f.time || '09:00'}`, desc: '每年农历指定日期触发（如生日/传统节日）' };
-                } else if (f.repeat_type === 'monthly') {
-                    return { title: `🌙 农历每月 ${f.lunar_day}日 ${f.time || '09:00'}`, desc: '每月农历特定日期触发（如初一/十五吃素）' };
+                    return { title: `🏮 农历每年 ${f.lunar_month}月${f.lunar_day}日 ${f.time || '09:00'}`, desc: '每年农历特定日期触发（如生日/传统节日）' };
                 } else {
-                    return { title: `🌅 农历每日 ${f.time || '09:00'}`, desc: '每日固定时间触发' };
+                    return { title: `🌙 农历每月 ${f.lunar_day}日 ${f.time || '09:00'}`, desc: '每月农历特定日期触发（如初一/十五）' };
                 }
             } else {
                 if (f.repeat_type === 'daily') {
