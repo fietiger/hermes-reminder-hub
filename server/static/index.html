@@ -1038,6 +1038,55 @@ createApp({
             showPreviewModal.value = true;
         };
 
+        // 加载发送历史
+        const loadSendHistory = async () => {
+            sendHistoryLoading.value = true;
+            try {
+                const res = await fetch('api/send_history?limit=100');
+                const data = await res.json();
+                sendHistory.value = data.history || [];
+            } catch (e) {
+                console.error('加载发送历史失败:', e);
+            } finally {
+                sendHistoryLoading.value = false;
+            }
+        };
+
+        const previewFromHistory = (item) => {
+            if (!item.message) return;
+            previewHtml.value = marked.parse(item.message);
+            showPreviewModal.value = true;
+        };
+
+        const copyMessage = (msg) => {
+            if (!msg) return;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(msg).then(() => {
+                    alert('已复制消息内容');
+                }).catch(() => {
+                    prompt('请手动复制:', msg);
+                });
+            } else {
+                prompt('请手动复制:', msg);
+            }
+        };
+
+        const formatRelativeTime = (timestamp) => {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (minutes < 1) return '刚刚';
+            if (minutes < 60) return `${minutes} 分钟前`;
+            if (hours < 24) return `${hours} 小时前`;
+            if (days < 7) return `${days} 天前`;
+            return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+        };
+
         const loadData = async () => {
             loading.value = true;
             try {
@@ -1049,6 +1098,8 @@ createApp({
                 reminders.value = rRes.reminders || [];
                 channels.value = cRes.channels || [];
                 templates.value = tRes.templates || [];
+                // 同时静默拉取发送历史
+                loadSendHistory();
             } catch (e) {
                 console.error('加载失败:', e);
             } finally {
@@ -1201,11 +1252,12 @@ createApp({
         });
 
         return {
-            activeTab, reminders, channels, templates, loading, showAddModal, showScheduleModal, showPreviewModal, showAddChannelModal, showDirectSendModal, showTemplateModal, isEditingReminder, submitting, sendingDirect,
+            activeTab, reminders, sendHistory, sendHistoryLoading, channels, templates, loading, showAddModal, showScheduleModal, showPreviewModal, showAddChannelModal, showDirectSendModal, showTemplateModal, isEditingReminder, submitting, sendingDirect,
             form, scheduleDraft, channelForm, directSendForm, templateForm, scheduleSummary, previewHtml,
             openAddModal, editReminder, applyScheduleDraft, openAddTemplateModal, editTemplate,
             openFormPreview, openDirectPreview, previewReminder, previewTemplate, previewTemplateDraft, previewSelectedTemplate,
-            loadData, saveReminder, deleteReminder, saveChannel, saveTemplate, deleteTemplate, sendDirectNow,
+            loadData, loadSendHistory, previewFromHistory, copyMessage, formatRelativeTime,
+            saveReminder, deleteReminder, saveChannel, saveTemplate, deleteTemplate, sendDirectNow,
             getRepeatLabel, getChannelName, getTemplateName, getCategoryIcon, getCategoryBadge, formatTimestamp, formatTime
         };
     }
