@@ -222,7 +222,7 @@ function applyTemplate(templateStr, vars) {
 
 /**
  * 轻量级标准 Cron 表达式下次执行时间计算器
- * 支持 5 段格式: 分 时 日 月 周 (例如: "30 9 * * 1-5" 或 "*/15 * * * *")
+ * 支持 5 段格式: 分 时 日 月 周 例如 30 9 * * 1-5
  */
 function getNextCronTimestamp(cronExpr, fromTime = Date.now()) {
     if (!cronExpr || typeof cronExpr !== 'string') return null;
