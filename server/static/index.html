@@ -159,7 +159,7 @@
                 <div class="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100">
                     <div class="flex items-center gap-1 text-slate-400">
                         <span>📡</span>
-                        <span class="truncate max-w-[110px]">{{ r.channel_ids.map(getChannelName).join(', ') }}</span>
+                        <span class="truncate max-w-[110px]">{{ (r.channel_ids || []).map(getChannelName).join(', ') }}</span>
                     </div>
                     <div class="flex items-center gap-1 text-indigo-600 font-bold bg-indigo-50/80 px-2 py-0.5 rounded-lg">
                         <span>⏰</span>
@@ -371,7 +371,7 @@
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">已选目标通道 ({{ form.channel_ids.length }}个)</label>
                         <div class="text-xs text-indigo-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 truncate">
-                            {{ form.channel_ids.map(getChannelName).join(', ') || '未选择通道' }}
+                            {{ (form.channel_ids || []).map(getChannelName).join(', ') || '未选择通道' }}
                         </div>
                     </div>
                 </div>
@@ -956,7 +956,7 @@ createApp({
                 content: form.value.content || '（这里是提醒正文示例内容）',
                 time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
                 type: scheduleSummary.value.title,
-                channel_name: form.value.channel_ids.map(getChannelName).join(' + ') || '微信直通'
+                channel_name: (form.value.channel_ids || []).map(getChannelName).join(' + ') || '微信直通'
             };
             previewHtml.value = renderMarkdown(tpl.content, vars);
             showPreviewModal.value = true;
@@ -970,7 +970,7 @@ createApp({
                 content: directSendForm.value.message || '（这里是即时直发消息示例内容）',
                 time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
                 type: '即时通知',
-                channel_name: directSendForm.value.channel_ids.map(getChannelName).join(' + ') || '微信直通'
+                channel_name: (directSendForm.value.channel_ids || []).map(getChannelName).join(' + ') || '微信直通'
             };
             previewHtml.value = renderMarkdown(tpl.content, vars);
             showPreviewModal.value = true;
@@ -990,7 +990,7 @@ createApp({
                 content: r.content,
                 time: new Date(r.next_trigger_at || Date.now()).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
                 type: getRepeatLabel(r.repeat_type, r.calendar_type),
-                channel_name: r.channel_ids.map(getChannelName).join(' + ')
+                channel_name: (r.channel_ids || []).map(getChannelName).join(' + ')
             };
             previewHtml.value = renderMarkdown(tpl.content, vars);
             showPreviewModal.value = true;
