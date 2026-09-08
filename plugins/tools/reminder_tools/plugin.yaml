@@ -1,0 +1,11 @@
+name: reminder_tools
+label: Hermes Smart Reminder Tools
+kind: general
+version: 1.0.0
+description: Smart Lunar/Solar Reminder and Multi-Channel Notification Hub tools for Hermes Agent.
+tools:
+  - reminder_create
+  - reminder_list
+  - reminder_cancel
+  - reminder_channel_list
+  - reminder_channel_add

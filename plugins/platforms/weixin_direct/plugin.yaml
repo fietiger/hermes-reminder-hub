@@ -1,0 +1,5 @@
+name: weixin_direct
+version: 1.0.0
+description: Direct Weixin local bridge and inbound/outbound adapter for Hermes Agent.
+platforms:
+  - weixin_direct

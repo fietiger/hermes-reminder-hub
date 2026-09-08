@@ -1,0 +1,12 @@
+{
+  "name": "hermes-reminder-hub",
+  "version": "1.0.0",
+  "description": "Cross-Platform Smart Lunar/Solar Reminder Hub with Multi-Channel Delivery",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.7"
+  }
+}
