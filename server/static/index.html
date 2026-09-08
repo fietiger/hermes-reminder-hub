@@ -260,13 +260,17 @@
                                     </span>
                                 </div>
 
-                                <!-- 操作菜单 (编辑 + 预览 + 删除) -->
+                                <!-- 操作菜单 (试发 + 预览 + 编辑 + 删除) -->
                                 <div class="flex items-center gap-1">
-                                    <button @click="editReminder(r)" class="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-50 transition" title="编辑修改">
-                                        ✏️
+                                    <button @click="testSendReminder(r)" class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-[11px] font-bold flex items-center gap-0.5 transition" title="手动试发测试消息（不影响原定周期计划）">
+                                        <span>🚀</span>
+                                        <span>试发</span>
                                     </button>
                                     <button @click="previewReminder(r)" class="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg hover:bg-slate-50 transition" title="预览卡片">
                                         👁️
+                                    </button>
+                                    <button @click="editReminder(r)" class="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-50 transition" title="编辑修改">
+                                        ✏️
                                     </button>
                                     <button @click="deleteReminder(r.id)" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-50 transition" title="删除">
                                         🗑️
@@ -1267,6 +1271,33 @@ createApp({
                 alert('请求异常: ' + e.message);
             } finally {
                 submitting.value = false;
+            }
+        };
+
+        // 手动测试试发（纯测试，不消耗/推迟下一次正常定时）
+        const testSendReminder = async (r) => {
+            if (!confirm(`确定要立即向微信发送一条【${r.title || '该提醒'}】的测试消息吗？\n\n💡 提示：这仅为即时测试，原定的定时提醒计划保持不变。`)) return;
+            
+            try {
+                const res = await fetch('api/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: r.title ? `[测试] ${r.title}` : '[测试提醒]',
+                        message: r.content,
+                        template_id: r.template_id || 'tpl_standard',
+                        channel_ids: r.channel_ids || ['default_wx']
+                    })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    alert('🚀 测试消息已即时发出！原定定时计划不受任何影响。');
+                    loadSendHistory();
+                } else {
+                    alert('试发失败: ' + (data.error || '未知错误'));
+                }
+            } catch (e) {
+                alert('试发异常: ' + e.message);
             }
         };
 
