@@ -182,9 +182,64 @@ function deliverDirectRaw(channel, content, targetUser, callback) {
     req.end();
 }
 
+// 格式化当前北京时间
+function getBeijingTimeString(d = new Date()) {
+    return d.toLocaleString('zh-CN', { 
+        timeZone: 'Asia/Shanghai', 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: false 
+    });
+}
+
+function getCalendarAndRepeatLabel(reminder) {
+    const calStr = reminder.calendar_type === 'lunar' ? '🏮 农历' : '☀️ 公历';
+    const repMap = { once: '单次', daily: '每天', weekly: '每周', monthly: '每月', yearly: '每年' };
+    const repStr = repMap[reminder.repeat_type] || reminder.repeat_type;
+    return `${calStr} · ${repStr}`;
+}
+
+// 消息 Markdown 模板渲染器
+function renderReminderMarkdown(reminder) {
+    const timeStr = getBeijingTimeString(new Date());
+    const typeTag = getCalendarAndRepeatLabel(reminder);
+    const titleHeader = reminder.title ? `### 🔔 ${reminder.title}` : `### 🔔 智能定时提醒`;
+
+    return `${titleHeader}
+
+> **🏷️ 类型**：${typeTag}  
+> **🕒 时间**：${timeStr} (北京时间)
+
+---
+
+${reminder.content}
+
+---
+*来自 Hermes Reminder Hub · 智能提醒中枢*`;
+}
+
+function renderDirectSendMarkdown(content, sender = 'Hermes Agent') {
+    const timeStr = getBeijingTimeString(new Date());
+    return `### ⚡ 即时直发通知
+
+> **🕒 发送时间**：${timeStr}  
+> **📡 来源**：${sender}
+
+---
+
+${content}
+
+---
+*来自 Hermes Reminder Hub · 即时中继*`;
+}
+
 function deliverToSingleChannel(channel, reminder, callback) {
-    const text = `【定时提醒】${reminder.title ? reminder.title + '\n' : ''}${reminder.content}`;
-    deliverDirectRaw(channel, text, reminder.target_override, callback);
+    const formattedMarkdown = renderReminderMarkdown(reminder);
+    deliverDirectRaw(channel, formattedMarkdown, reminder.target_override, callback);
 }
 
 // 调度引擎：每 10 秒巡检一次到期任务，并行分发到绑定的所有通道
@@ -311,7 +366,8 @@ const server = http.createServer((req, res) => {
                         return;
                     }
 
-                    deliverDirectRaw(ch, textToSend, to_user, (delErr, delRes) => {
+                    const directMarkdown = renderDirectSendMarkdown(textToSend, ch.name || 'Hermes Hub');
+                    deliverDirectRaw(ch, directMarkdown, to_user, (delErr, delRes) => {
                         const isOk = !delErr && delRes.statusCode >= 200 && delRes.statusCode < 300;
                         const record = {
                             channel_id: cId,
