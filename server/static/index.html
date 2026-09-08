@@ -360,8 +360,8 @@ createApp({
             loading.value = true;
             try {
                 const [rRes, cRes] = await Promise.all([
-                    fetch('/api/reminders').then(r => r.json()),
-                    fetch('/api/channels').then(r => r.json())
+                    fetch('api/reminders').then(r => r.json()),
+                    fetch('api/channels').then(r => r.json())
                 ]);
                 reminders.value = rRes.reminders || [];
                 channels.value = cRes.channels || [];
@@ -377,7 +377,7 @@ createApp({
             if (!directSendForm.value.channel_ids || directSendForm.value.channel_ids.length === 0) return alert('请至少选择一个目标通道');
             sendingDirect.value = true;
             try {
-                const res = await fetch('/api/send', {
+                const res = await fetch('api/send', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(directSendForm.value)
@@ -402,7 +402,7 @@ createApp({
             if (!form.value.channel_ids || form.value.channel_ids.length === 0) return alert('请至少勾选一个通知通道');
             submitting.value = true;
             try {
-                const res = await fetch('/api/reminders', {
+                const res = await fetch('api/reminders', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(form.value)
@@ -426,7 +426,7 @@ createApp({
         const deleteReminder = async (id) => {
             if (!confirm('确定删除该提醒？')) return;
             try {
-                await fetch('/api/reminders/' + id, { method: 'DELETE' });
+                await fetch('api/reminders/' + id, { method: 'DELETE' });
                 await loadData();
             } catch (e) {
                 alert('删除失败: ' + e.message);
@@ -436,7 +436,7 @@ createApp({
         const saveChannel = async () => {
             if (!channelForm.value.id || !channelForm.value.endpoint_url) return alert('请填写通道 ID 和接口 URL');
             try {
-                await fetch('/api/channels', {
+                await fetch('api/channels', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(channelForm.value)
