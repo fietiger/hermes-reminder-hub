@@ -581,19 +581,19 @@
                     <div class="grid grid-cols-4 gap-1.5 sm:gap-2">
                         <button @click="scheduleDraft.repeat_type = 'daily'" :class="['p-2.5 rounded-2xl border text-center transition flex flex-col items-center gap-1', scheduleDraft.repeat_type === 'daily' ? 'border-indigo-500 bg-indigo-50/80 text-indigo-900 font-bold' : 'border-slate-200 bg-slate-50 text-slate-600']">
                             <span class="text-lg sm:text-xl">🌅</span>
-                            <span class="text-[11px] sm:text-xs">每天重复</span>
+                            <span class="text-xs font-semibold">每天</span>
                         </button>
                         <button @click="scheduleDraft.repeat_type = 'weekly'" :class="['p-2.5 rounded-2xl border text-center transition flex flex-col items-center gap-1', scheduleDraft.repeat_type === 'weekly' ? 'border-indigo-500 bg-indigo-50/80 text-indigo-900 font-bold' : 'border-slate-200 bg-slate-50 text-slate-600']">
                             <span class="text-lg sm:text-xl">📅</span>
-                            <span class="text-[11px] sm:text-xs">每周几</span>
+                            <span class="text-xs font-semibold">每周</span>
                         </button>
                         <button @click="scheduleDraft.repeat_type = 'once'" :class="['p-2.5 rounded-2xl border text-center transition flex flex-col items-center gap-1', scheduleDraft.repeat_type === 'once' ? 'border-indigo-500 bg-indigo-50/80 text-indigo-900 font-bold' : 'border-slate-200 bg-slate-50 text-slate-600']">
                             <span class="text-lg sm:text-xl">⏱️</span>
-                            <span class="text-[11px] sm:text-xs">单次倒计时</span>
+                            <span class="text-xs font-semibold">单次</span>
                         </button>
                         <button @click="scheduleDraft.repeat_type = 'cron'" :class="['p-2.5 rounded-2xl border text-center transition flex flex-col items-center gap-1', scheduleDraft.repeat_type === 'cron' ? 'border-indigo-500 bg-indigo-50/80 text-indigo-900 font-bold' : 'border-slate-200 bg-slate-50 text-slate-600']">
                             <span class="text-lg sm:text-xl">⚙️</span>
-                            <span class="text-[11px] sm:text-xs">Cron表达式</span>
+                            <span class="text-xs font-semibold">Cron</span>
                         </button>
                     </div>
 
@@ -633,11 +633,11 @@
                     <div class="grid grid-cols-2 gap-2">
                         <button @click="scheduleDraft.repeat_type = 'yearly'" :class="['p-3 rounded-2xl border text-center transition flex flex-col items-center gap-1', scheduleDraft.repeat_type === 'yearly' ? 'border-amber-500 bg-amber-50 text-amber-950 font-bold' : 'border-slate-200 bg-slate-50 text-slate-600']">
                             <span class="text-xl">🏮</span>
-                            <span class="text-xs">农历每年 (生日/节日)</span>
+                            <span class="text-xs font-semibold">农历每年</span>
                         </button>
                         <button @click="scheduleDraft.repeat_type = 'monthly'" :class="['p-3 rounded-2xl border text-center transition flex flex-col items-center gap-1', scheduleDraft.repeat_type === 'monthly' ? 'border-amber-500 bg-amber-50 text-amber-950 font-bold' : 'border-slate-200 bg-slate-50 text-slate-600']">
                             <span class="text-xl">🌙</span>
-                            <span class="text-xs">农历每月 (初一/十五)</span>
+                            <span class="text-xs font-semibold">农历每月</span>
                         </button>
                     </div>
 
@@ -671,11 +671,11 @@
                     <div class="grid grid-cols-2 gap-2">
                         <button @click="scheduleDraft.repeat_type = 'yearly'" :class="['p-3 rounded-2xl border text-center transition flex flex-col items-center gap-1', scheduleDraft.repeat_type === 'yearly' ? 'border-blue-500 bg-blue-50 text-blue-950 font-bold' : 'border-slate-200 bg-slate-50 text-slate-600']">
                             <span class="text-xl">🎂</span>
-                            <span class="text-xs">公历每年 (阳历生日)</span>
+                            <span class="text-xs font-semibold">公历每年</span>
                         </button>
                         <button @click="scheduleDraft.repeat_type = 'monthly'" :class="['p-3 rounded-2xl border text-center transition flex flex-col items-center gap-1', scheduleDraft.repeat_type === 'monthly' ? 'border-blue-500 bg-blue-50 text-blue-950 font-bold' : 'border-slate-200 bg-slate-50 text-slate-600']">
                             <span class="text-xl">🗓️</span>
-                            <span class="text-xs">公历每月 (固定几号)</span>
+                            <span class="text-xs font-semibold">公历每月</span>
                         </button>
                     </div>
 
