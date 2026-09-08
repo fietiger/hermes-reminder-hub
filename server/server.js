@@ -12,7 +12,7 @@ const STATIC_INDEX = path.join(__dirname, 'static', 'index.html');
 
 const db = new sqlite3.Database(DB_PATH);
 
-// 初始化数据库表
+// 初始化数据库表（支持 channel_ids 数组与向前兼容）
 db.serialize(() => {
     db.run(`
         CREATE TABLE IF NOT EXISTS channels (
@@ -32,7 +32,8 @@ db.serialize(() => {
             id TEXT PRIMARY KEY,
             title TEXT,
             content TEXT NOT NULL,
-            channel_id TEXT NOT NULL,
+            channel_id TEXT,
+            channel_ids TEXT,
             target_override TEXT,
             calendar_type TEXT DEFAULT 'solar',
             repeat_type TEXT DEFAULT 'once',
@@ -40,10 +41,14 @@ db.serialize(() => {
             next_trigger_at INTEGER NOT NULL,
             status TEXT DEFAULT 'active',
             last_delivered_at INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (channel_id) REFERENCES channels(id)
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `);
+
+    // 检查是否有 channel_ids 字段（兼容老库）
+    db.run(`ALTER TABLE reminders ADD COLUMN channel_ids TEXT`, (err) => {
+        // ignore duplicate column error
+    });
 
     db.run(`
         CREATE TABLE IF NOT EXISTS delivery_logs (
@@ -62,6 +67,21 @@ db.serialize(() => {
         VALUES ('default_wx', '本地微信直通', 'weixin_direct', 'http://127.0.0.1:8765/send', 'hermes-weixin-direct-key-2024', '', 1)
     `);
 });
+
+// 辅助函数：解析提醒所绑定的通道 ID 列表
+function getTargetChannelIds(reminder) {
+    if (reminder.channel_ids) {
+        try {
+            const arr = JSON.parse(reminder.channel_ids);
+            if (Array.isArray(arr) && arr.length > 0) return arr;
+        } catch (e) {
+            const arr = reminder.channel_ids.split(',').map(s => s.trim()).filter(Boolean);
+            if (arr.length > 0) return arr;
+        }
+    }
+    if (reminder.channel_id) return [reminder.channel_id];
+    return ['default_wx'];
+}
 
 // 辅助计算下次触发时间戳 (毫秒)
 function calculateNextTrigger(calendarType, repeatType, rule, fromTime = Date.now()) {
@@ -129,8 +149,8 @@ function calculateNextTrigger(calendarType, repeatType, rule, fromTime = Date.no
     return null;
 }
 
-// 执行消息投递 (通过通道指定的 Webhook / 微信直通)
-function deliverMessage(channel, reminder, callback) {
+// 执行单通道消息投递
+function deliverToSingleChannel(channel, reminder, callback) {
     const payload = JSON.stringify({
         content: `【定时提醒】${reminder.title ? reminder.title + '\n' : ''}${reminder.content}`,
         to_user: reminder.target_override || channel.target_user || ''
@@ -164,35 +184,43 @@ function deliverMessage(channel, reminder, callback) {
     req.end();
 }
 
-// 调度引擎：每 10 秒巡检一次到期任务
+// 调度引擎：每 10 秒巡检一次到期任务，并行分发到绑定的所有通道
 function processDueReminders() {
     const now = Date.now();
-    const sql = `
-        SELECT r.*, c.endpoint_url, c.auth_key, c.target_user, c.enabled as channel_enabled, c.name as channel_name
-        FROM reminders r
-        LEFT JOIN channels c ON r.channel_id = c.id
-        WHERE r.status = 'active' AND r.next_trigger_at <= ?
-    `;
+    const sql = `SELECT * FROM reminders WHERE status = 'active' AND next_trigger_at <= ?`;
 
-    db.all(sql, [now], (err, rows) => {
-        if (err || !rows || rows.length === 0) return;
+    db.all(sql, [now], (err, remindersList) => {
+        if (err || !remindersList || remindersList.length === 0) return;
 
-        rows.forEach((row) => {
-            const channel = {
-                endpoint_url: row.endpoint_url,
-                auth_key: row.auth_key,
-                target_user: row.target_user
-            };
+        // 获取所有启用通道
+        db.all(`SELECT * FROM channels WHERE enabled = 1`, [], (cErr, allChannels) => {
+            if (cErr || !allChannels) return;
+            const channelMap = Object.fromEntries(allChannels.map(c => [c.id, c]));
 
-            deliverMessage(channel, row, (delErr, result) => {
-                const statusStr = delErr ? 'failed' : (result.statusCode >= 200 && result.statusCode < 300 ? 'success' : `http_${result.statusCode}`);
-                const logResp = delErr ? delErr.message : result.body;
+            remindersList.forEach((row) => {
+                const targetIds = getTargetChannelIds(row);
+                
+                // 并行分发到每个绑定的通道
+                targetIds.forEach((cId) => {
+                    const ch = channelMap[cId];
+                    if (!ch) {
+                        db.run(`INSERT INTO delivery_logs (reminder_id, channel_id, status, response) VALUES (?, ?, ?, ?)`,
+                            [row.id, cId, 'skipped', 'Channel not found or disabled']
+                        );
+                        return;
+                    }
 
-                db.run(`INSERT INTO delivery_logs (reminder_id, channel_id, status, response) VALUES (?, ?, ?, ?)`,
-                    [row.id, row.channel_id, statusStr, logResp]
-                );
+                    deliverToSingleChannel(ch, row, (delErr, result) => {
+                        const statusStr = delErr ? 'failed' : (result.statusCode >= 200 && result.statusCode < 300 ? 'success' : `http_${result.statusCode}`);
+                        const logResp = delErr ? delErr.message : result.body;
 
-                // 更新下次触发时间或标记完成
+                        db.run(`INSERT INTO delivery_logs (reminder_id, channel_id, status, response) VALUES (?, ?, ?, ?)`,
+                            [row.id, cId, statusStr, logResp]
+                        );
+                    });
+                });
+
+                // 更新状态与下次触发时间
                 if (row.repeat_type === 'once') {
                     db.run(`UPDATE reminders SET status = 'completed', last_delivered_at = ? WHERE id = ?`, [Date.now(), row.id]);
                 } else {
@@ -231,12 +259,6 @@ const server = http.createServer((req, res) => {
         }
         return sendJson(404, { error: 'Static frontend not found' });
     }
-
-    // 简单鉴权 (只针对外部 API，允许内部控制台读取)
-    const authHeader = req.headers['authorization'] || '';
-    const token = authHeader.replace(/^Bearer\s+/i, '') || req.headers['x-api-key'] || parsedUrl.query.token;
-    // 如果没有传 token 且来自浏览器直接访问，允许同源/本地查看，否则校验 token
-    const isBrowserDirect = !pathname.startsWith('/api/admin') && (!token || token === AUTH_TOKEN);
 
     let body = '';
     req.on('data', chunk => body += chunk);
@@ -278,19 +300,38 @@ const server = http.createServer((req, res) => {
         if (pathname === '/api/reminders' && method === 'GET') {
             db.all('SELECT * FROM reminders ORDER BY next_trigger_at ASC', [], (err, rows) => {
                 if (err) return sendJson(500, { error: err.message });
-                sendJson(200, { reminders: rows });
+                // 解析 channel_ids 数组返回给前端
+                const normalized = rows.map(r => ({
+                    ...r,
+                    channel_ids: getTargetChannelIds(r)
+                }));
+                sendJson(200, { reminders: normalized });
             });
             return;
         }
 
         if (pathname === '/api/reminders' && method === 'POST') {
-            const { title, content, channel_id, calendar_type, repeat_type, target_override } = jsonBody;
+            const { title, content, channel_id, channel_ids, calendar_type, repeat_type, target_override } = jsonBody;
             if (!content) return sendJson(400, { error: 'content is required' });
 
             const remId = 'rem_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
             const calType = calendar_type === 'lunar' ? 'lunar' : 'solar';
             const repType = repeat_type || 'once';
-            const chanId = channel_id || 'default_wx';
+            
+            // 归一化通道数组
+            let targetChannels = [];
+            if (Array.isArray(channel_ids) && channel_ids.length > 0) {
+                targetChannels = channel_ids;
+            } else if (typeof channel_ids === 'string') {
+                targetChannels = channel_ids.split(',').map(s => s.trim()).filter(Boolean);
+            } else if (channel_id) {
+                targetChannels = [channel_id];
+            } else {
+                targetChannels = ['default_wx'];
+            }
+
+            const primaryChannel = targetChannels[0] || 'default_wx';
+            const channelIdsJson = JSON.stringify(targetChannels);
 
             const nextTrigger = calculateNextTrigger(calType, repType, jsonBody, Date.now());
             if (!nextTrigger) {
@@ -298,13 +339,14 @@ const server = http.createServer((req, res) => {
             }
 
             db.run(`
-                INSERT INTO reminders (id, title, content, channel_id, target_override, calendar_type, repeat_type, rule_detail, next_trigger_at, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
-            `, [remId, title || '', content, chanId, target_override || '', calType, repType, JSON.stringify(jsonBody), nextTrigger], function(err) {
+                INSERT INTO reminders (id, title, content, channel_id, channel_ids, target_override, calendar_type, repeat_type, rule_detail, next_trigger_at, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+            `, [remId, title || '', content, primaryChannel, channelIdsJson, target_override || '', calType, repType, JSON.stringify(jsonBody), nextTrigger], function(err) {
                 if (err) return sendJson(500, { error: err.message });
                 sendJson(200, {
                     success: true,
                     reminder_id: remId,
+                    channels: targetChannels,
                     next_trigger_at: nextTrigger,
                     next_trigger_iso: new Date(nextTrigger).toISOString(),
                     calendar_type: calType,

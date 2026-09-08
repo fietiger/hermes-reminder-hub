@@ -3,7 +3,7 @@ import os
 import json
 import urllib.request
 import urllib.parse
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Union
 
 DEFAULT_HUB_URL = os.getenv("REMINDER_HUB_URL", "http://127.0.0.1:8780")
 DEFAULT_HUB_TOKEN = os.getenv("REMINDER_HUB_TOKEN", "hermes_hub_secret_2026")
@@ -30,16 +30,21 @@ def _hub_req(method: str, path: str, body: Any = None) -> Any:
     except Exception as e:
         return {"error": str(e)}
 
-# 1. 创建提醒
+# 1. 创建提醒 (支持单通道/多通道列表)
 REMINDER_CREATE_SCHEMA = {
     "name": "reminder_create",
-    "description": "创建智能定时提醒（支持公历/农历、单次/按天/按周/按月/按年周期，支持指定通知通道如微信直通）。",
+    "description": "创建智能定时提醒（支持公历/农历、单次/按天/按周/按月/按年周期，支持通知单个通道或同时广播到多个通道如 ['default_wx', 'xiaoniu_wx']）。",
     "parameters": {
         "type": "object",
         "properties": {
             "content": {"type": "string", "description": "提醒正文内容（必填）"},
             "title": {"type": "string", "description": "提醒标题（可选）"},
-            "channel_id": {"type": "string", "description": "通知通道 ID（默认 default_wx，可填小马、小牛等其他微信通道）"},
+            "channel_id": {"type": "string", "description": "单通道 ID（如 default_wx，与 channel_ids 二选一）"},
+            "channel_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "多通道 ID 列表，同时通知多个微信/Webhook 终端（如 ['default_wx', 'xiaoniu_wx']）"
+            },
             "calendar_type": {"type": "string", "enum": ["solar", "lunar"], "description": "历法类型：solar (公历) 或 lunar (农历)"},
             "repeat_type": {"type": "string", "enum": ["once", "daily", "weekly", "monthly", "yearly"], "description": "重复周期"},
             "delay_minutes": {"type": "integer", "description": "多少分钟后提醒（单次有效）"},
@@ -65,7 +70,7 @@ def handle_reminder_create(content: str, **kwargs) -> str:
 # 2. 查询提醒
 REMINDER_LIST_SCHEMA = {
     "name": "reminder_list",
-    "description": "查询当前所有待触发的定时提醒任务列表与下次触发时间。",
+    "description": "查询当前所有待触发的定时提醒任务列表、绑定的通道及下次触发时间。",
     "parameters": {"type": "object", "properties": {}}
 }
 
