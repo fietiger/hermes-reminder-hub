@@ -26,17 +26,20 @@
             </div>
             <div>
                 <h1 class="text-xl sm:text-2xl font-bold text-slate-900">Hermes 提醒中枢</h1>
-                <p class="text-xs sm:text-sm text-slate-500">智能农历 / 阳历调度 · 多通道多目标并发广播路由</p>
+                <p class="text-xs sm:text-sm text-slate-500">智能农历 / 阳历调度 · 多通道即时直发与广播路由</p>
             </div>
         </div>
-        <div class="flex items-center gap-2">
-            <button @click="loadData" :disabled="loading" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-slate-700">
-                <span>🔄</span>
-                <span>{{ loading ? '刷新中...' : '刷新数据' }}</span>
+        <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <button @click="showDirectSendModal = true" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs sm:text-sm font-medium transition shadow-sm flex items-center gap-1.5">
+                <span>⚡</span>
+                <span>即时直发</span>
             </button>
-            <button @click="openAddModal" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs sm:text-sm font-medium transition shadow-sm flex items-center gap-1.5">
+            <button @click="openAddModal" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs sm:text-sm font-medium transition shadow-sm flex items-center gap-1.5">
                 <span>➕</span>
-                <span>新建提醒</span>
+                <span>新建定时</span>
+            </button>
+            <button @click="loadData" :disabled="loading" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-1 text-slate-700">
+                <span>🔄</span>
             </button>
         </div>
     </header>
@@ -44,7 +47,7 @@
     <!-- 导航 Tab -->
     <div class="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2">
         <button @click="activeTab = 'reminders'" :class="['px-4 py-2 rounded-xl text-sm font-medium transition', activeTab === 'reminders' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-100']">
-            📅 提醒任务 ({{ reminders.length }})
+            📅 定时提醒 ({{ reminders.length }})
         </button>
         <button @click="activeTab = 'channels'" :class="['px-4 py-2 rounded-xl text-sm font-medium transition', activeTab === 'channels' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-100']">
             📡 通知通道 ({{ channels.length }})
@@ -55,19 +58,19 @@
     <div v-if="activeTab === 'reminders'" class="space-y-3.5">
         <div v-if="reminders.length === 0" class="bg-white rounded-2xl border border-slate-200 text-center py-16 text-slate-400">
             <div class="text-5xl mb-3">📭</div>
-            <p class="text-sm">暂无活跃的提醒任务，点击右上角新建一个吧！</p>
+            <p class="text-sm">暂无活跃的定时提醒，点击右上角新建或即时直发一条消息吧！</p>
         </div>
 
         <div v-for="r in reminders" :key="r.id" class="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-sm hover:shadow transition">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span :class="['text-xs px-2.5 py-0.5 rounded-full font-medium border', r.calendar_type === 'lunar' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200']">
-                        {{ r.calendar_type === 'lunar' ? '🏮 农历' : '���️ 公历' }}
+                        {{ r.calendar_type === 'lunar' ? '🏮 农历' : '☀️ 公历' }}
                     </span>
                     <span class="text-xs px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-medium">
                         {{ getRepeatLabel(r.repeat_type) }}
                     </span>
-                    <div class="flex items-center gap-1">
+                    <div class="flex items-center gap-1 flex-wrap">
                         <span v-for="cId in r.channel_ids" :key="cId" class="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-medium">
                             📡 {{ getChannelName(cId) }}
                         </span>
@@ -126,11 +129,52 @@
         </div>
     </div>
 
+    <!-- 即时直发弹窗 (Instant Send) -->
+    <div v-if="showDirectSendModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg p-4 sm:p-6">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-1.5">
+                    <span>⚡</span>
+                    <span>即时直发消息</span>
+                </h2>
+                <button @click="showDirectSendModal = false" class="text-slate-400 hover:text-slate-600 text-lg p-1">✕</button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">直发内容</label>
+                    <textarea v-model="directSendForm.message" placeholder="输入要立即推送到微信的消息内容..." class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm h-28 resize-none outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span>目标通道（可多选）</span>
+                        <span class="text-xs text-emerald-600 font-normal">已选 {{ directSendForm.channel_ids.length }} 个</span>
+                    </label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <label v-for="c in channels" :key="c.id" class="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-emerald-300 transition">
+                            <input type="checkbox" :value="c.id" v-model="directSendForm.channel_ids" class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500">
+                            <span class="text-xs font-medium text-slate-800">{{ c.name }}</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-6 pt-3 border-t border-slate-100">
+                <button @click="showDirectSendModal = false" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">取消</button>
+                <button @click="sendDirectNow" :disabled="sendingDirect" class="px-5 py-2 text-sm bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 active:bg-emerald-800 shadow-sm flex items-center gap-1.5">
+                    <span>⚡</span>
+                    <span>{{ sendingDirect ? '正在发送...' : '立即直发' }}</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- 新建提醒弹窗 (支持多选通道) -->
     <div v-if="showAddModal" class="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
         <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                <h2 class="text-lg font-bold text-slate-900">新建多通道提醒任务</h2>
+                <h2 class="text-lg font-bold text-slate-900">新建多通道定时提醒</h2>
                 <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 text-lg p-1">✕</button>
             </div>
 
@@ -276,7 +320,9 @@ createApp({
         const loading = ref(false);
         const showAddModal = ref(false);
         const showAddChannelModal = ref(false);
+        const showDirectSendModal = ref(false);
         const submitting = ref(false);
+        const sendingDirect = ref(false);
 
         const form = ref({
             title: '',
@@ -289,6 +335,11 @@ createApp({
             time: '09:00',
             lunar_month: 9,
             lunar_day: 18
+        });
+
+        const directSendForm = ref({
+            message: '',
+            channel_ids: ['default_wx']
         });
 
         const channelForm = ref({
@@ -318,6 +369,31 @@ createApp({
                 console.error('加载失败:', e);
             } finally {
                 loading.value = false;
+            }
+        };
+
+        const sendDirectNow = async () => {
+            if (!directSendForm.value.message.trim()) return alert('请输入要直发的消息内容');
+            if (!directSendForm.value.channel_ids || directSendForm.value.channel_ids.length === 0) return alert('请至少选择一个目标通道');
+            sendingDirect.value = true;
+            try {
+                const res = await fetch('/api/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(directSendForm.value)
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    alert('⚡ 消息已直发成功！');
+                    directSendForm.value.message = '';
+                    showDirectSendModal.value = false;
+                } else {
+                    alert('发送失败: ' + (data.error || '未知错误'));
+                }
+            } catch (e) {
+                alert('请求异常: ' + e.message);
+            } finally {
+                sendingDirect.value = false;
             }
         };
 
@@ -398,9 +474,9 @@ createApp({
         });
 
         return {
-            activeTab, reminders, channels, loading, showAddModal, showAddChannelModal, submitting,
-            form, channelForm, openAddModal,
-            loadData, saveReminder, deleteReminder, saveChannel,
+            activeTab, reminders, channels, loading, showAddModal, showAddChannelModal, showDirectSendModal, submitting, sendingDirect,
+            form, channelForm, directSendForm, openAddModal,
+            loadData, saveReminder, deleteReminder, saveChannel, sendDirectNow,
             getRepeatLabel, getChannelName, formatTimestamp, formatTime
         };
     }

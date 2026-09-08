@@ -45,10 +45,7 @@ db.serialize(() => {
         )
     `);
 
-    // 检查是否有 channel_ids 字段（兼容老库）
-    db.run(`ALTER TABLE reminders ADD COLUMN channel_ids TEXT`, (err) => {
-        // ignore duplicate column error
-    });
+    db.run(`ALTER TABLE reminders ADD COLUMN channel_ids TEXT`, (err) => {});
 
     db.run(`
         CREATE TABLE IF NOT EXISTS delivery_logs (
@@ -149,11 +146,11 @@ function calculateNextTrigger(calendarType, repeatType, rule, fromTime = Date.no
     return null;
 }
 
-// 执行单通道消息投递
-function deliverToSingleChannel(channel, reminder, callback) {
+// 执行单通道消息投递 (原始消息投递)
+function deliverDirectRaw(channel, content, targetUser, callback) {
     const payload = JSON.stringify({
-        content: `【定时提醒】${reminder.title ? reminder.title + '\n' : ''}${reminder.content}`,
-        to_user: reminder.target_override || channel.target_user || ''
+        content: content,
+        to_user: targetUser || channel.target_user || ''
     });
 
     const targetUrl = url.parse(channel.endpoint_url);
@@ -182,6 +179,11 @@ function deliverToSingleChannel(channel, reminder, callback) {
 
     req.write(payload);
     req.end();
+}
+
+function deliverToSingleChannel(channel, reminder, callback) {
+    const text = `【定时提醒】${reminder.title ? reminder.title + '\n' : ''}${reminder.content}`;
+    deliverDirectRaw(channel, text, reminder.target_override, callback);
 }
 
 // 调度引擎：每 10 秒巡检一次到期任务，并行分发到绑定的所有通道
@@ -273,7 +275,68 @@ const server = http.createServer((req, res) => {
             return sendJson(200, { status: 'ok', service: 'hermes-reminder-hub', time: new Date().toISOString() });
         }
 
-        // 2. 通道管理 API
+        // 2. 即时发送 API (POST /api/send 或 POST /api/notify)
+        if ((pathname === '/api/send' || pathname === '/api/notify') && method === 'POST') {
+            const { message, content, channel_id, channel_ids, to_user } = jsonBody;
+            const textToSend = message || content;
+            if (!textToSend) {
+                return sendJson(400, { error: 'message or content is required' });
+            }
+
+            let targetChannels = [];
+            if (Array.isArray(channel_ids) && channel_ids.length > 0) {
+                targetChannels = channel_ids;
+            } else if (channel_id) {
+                targetChannels = [channel_id];
+            } else {
+                targetChannels = ['default_wx'];
+            }
+
+            db.all(`SELECT * FROM channels WHERE enabled = 1`, [], (cErr, allChannels) => {
+                if (cErr) return sendJson(500, { error: cErr.message });
+                const channelMap = Object.fromEntries(allChannels.map(c => [c.id, c]));
+
+                const results = [];
+                let completedCount = 0;
+
+                targetChannels.forEach((cId) => {
+                    const ch = channelMap[cId];
+                    if (!ch) {
+                        results.push({ channel_id: cId, success: false, error: 'Channel not found or disabled' });
+                        completedCount++;
+                        if (completedCount === targetChannels.length) {
+                            sendJson(200, { ok: true, direct_send: true, results });
+                        }
+                        return;
+                    }
+
+                    deliverDirectRaw(ch, textToSend, to_user, (delErr, delRes) => {
+                        const isOk = !delErr && delRes.statusCode >= 200 && delRes.statusCode < 300;
+                        const record = {
+                            channel_id: cId,
+                            channel_name: ch.name,
+                            success: isOk,
+                            statusCode: delRes ? delRes.statusCode : null,
+                            response: delErr ? delErr.message : delRes.body
+                        };
+                        results.push(record);
+
+                        // 记录日志
+                        db.run(`INSERT INTO delivery_logs (reminder_id, channel_id, status, response) VALUES (?, ?, ?, ?)`,
+                            ['instant_send', cId, isOk ? 'success' : 'failed', delErr ? delErr.message : delRes.body]
+                        );
+
+                        completedCount++;
+                        if (completedCount === targetChannels.length) {
+                            sendJson(200, { ok: true, direct_send: true, results });
+                        }
+                    });
+                });
+            });
+            return;
+        }
+
+        // 3. 通道管理 API
         if (pathname === '/api/channels' && method === 'GET') {
             db.all('SELECT * FROM channels ORDER BY created_at DESC', [], (err, rows) => {
                 if (err) return sendJson(500, { error: err.message });
@@ -296,11 +359,10 @@ const server = http.createServer((req, res) => {
             return;
         }
 
-        // 3. 提醒管理 API
+        // 4. 提醒管理 API
         if (pathname === '/api/reminders' && method === 'GET') {
             db.all('SELECT * FROM reminders ORDER BY next_trigger_at ASC', [], (err, rows) => {
                 if (err) return sendJson(500, { error: err.message });
-                // 解析 channel_ids 数组返回给前端
                 const normalized = rows.map(r => ({
                     ...r,
                     channel_ids: getTargetChannelIds(r)

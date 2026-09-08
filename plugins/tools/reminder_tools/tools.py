@@ -30,7 +30,32 @@ def _hub_req(method: str, path: str, body: Any = None) -> Any:
     except Exception as e:
         return {"error": str(e)}
 
-# 1. 创建提醒 (支持单通道/多通道列表)
+# 1. 即时发送 / 直发消息
+REMINDER_SEND_DIRECT_SCHEMA = {
+    "name": "reminder_send_direct",
+    "description": "即时直发消息（无需等待定时触发，类似于即时短信/即时微信通知，支持单个通道或多通道并发广播）。",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "message": {"type": "string", "description": "要即时发送的消息内容（必填）"},
+            "channel_id": {"type": "string", "description": "目标通道 ID（如 default_wx 或 xiaoniu_wx）"},
+            "channel_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "多通道 ID 列表，同时向多个微信/Webhook 终端即时直发"
+            },
+            "to_user": {"type": "string", "description": "覆盖目标接收用户 wxid（可选）"}
+        },
+        "required": ["message"]
+    }
+}
+
+def handle_reminder_send_direct(message: str, **kwargs) -> str:
+    body = {"message": message, **kwargs}
+    res = _hub_req("POST", "/api/send", body)
+    return json.dumps(res, ensure_ascii=False)
+
+# 2. 创建提醒 (支持单通道/多通道列表)
 REMINDER_CREATE_SCHEMA = {
     "name": "reminder_create",
     "description": "创建智能定时提醒（支持公历/农历、单次/按天/按周/按月/按年周期，支持通知单个通道或同时广播到多个通道如 ['default_wx', 'xiaoniu_wx']）。",
@@ -67,7 +92,7 @@ def handle_reminder_create(content: str, **kwargs) -> str:
     res = _hub_req("POST", "/api/reminders", body)
     return json.dumps(res, ensure_ascii=False)
 
-# 2. 查询提醒
+# 3. 查询提醒
 REMINDER_LIST_SCHEMA = {
     "name": "reminder_list",
     "description": "查询当前所有待触发的定时提醒任务列表、绑定的通道及下次触发时间。",
@@ -78,7 +103,7 @@ def handle_reminder_list(**kwargs) -> str:
     res = _hub_req("GET", "/api/reminders")
     return json.dumps(res, ensure_ascii=False)
 
-# 3. 取消提醒
+# 4. 取消提醒
 REMINDER_CANCEL_SCHEMA = {
     "name": "reminder_cancel",
     "description": "根据提醒任务 ID 取消/删除指定的定时提醒。",
@@ -95,7 +120,7 @@ def handle_reminder_cancel(reminder_id: str, **kwargs) -> str:
     res = _hub_req("DELETE", f"/api/reminders/{reminder_id}")
     return json.dumps(res, ensure_ascii=False)
 
-# 4. 通道列表
+# 5. 通道列表
 REMINDER_CHANNEL_LIST_SCHEMA = {
     "name": "reminder_channel_list",
     "description": "查看当前云端提醒中枢挂载的所有通知通道（微信直通、不同实例等）。",
@@ -106,7 +131,7 @@ def handle_reminder_channel_list(**kwargs) -> str:
     res = _hub_req("GET", "/api/channels")
     return json.dumps(res, ensure_ascii=False)
 
-# 5. 添加通道
+# 6. 添加通道
 REMINDER_CHANNEL_ADD_SCHEMA = {
     "name": "reminder_channel_add",
     "description": "向提醒中枢添加新的通知通道（例如接入另一台机器或实例的微信直通）。",
@@ -131,6 +156,7 @@ def handle_reminder_channel_add(id: str, endpoint_url: str, **kwargs) -> str:
 def register_tools(ctx):
     """Register reminder tools into Hermes Agent."""
     tools = [
+        ("reminder_send_direct", REMINDER_SEND_DIRECT_SCHEMA, handle_reminder_send_direct, "⚡"),
         ("reminder_create", REMINDER_CREATE_SCHEMA, handle_reminder_create, "⏰"),
         ("reminder_list", REMINDER_LIST_SCHEMA, handle_reminder_list, "📋"),
         ("reminder_cancel", REMINDER_CANCEL_SCHEMA, handle_reminder_cancel, "🗑️"),
